@@ -1,0 +1,218 @@
+{
+  "id": "hft_firm_stage2_people_projects",
+  "title": "HFT Firm Game Stage 2: People And Projects",
+  "summary": "Deepen the management sim with employees, relationships, burnout pressure, and task-driven project flow.",
+  "artifactTarget": "Electron people and project management slice",
+  "publicBriefFile": "benchmarks/hft_firm_stage2_people_projects/brief.md",
+  "workspaceSeed": "seeds/hft_firm_stage2_people_projects",
+  "budgets": {
+    "minMinutes": 45,
+    "maxMinutes": 180,
+    "defaultMinutes": 90
+  },
+  "acceptanceCriteria": [
+    "Preserve the stage-1 shell while adding meaningful employee and project simulation.",
+    "Model staff as people with strengths, weaknesses, and interpersonal or reliability effects.",
+    "Make performance monitoring and management pressure part of the simulation rather than a flavor note.",
+    "Make assignments, project flow, and task output visible in the UI.",
+    "Connect project or task output to future trading-engine parts or components.",
+    "Document the new systems and keep test or smoke coverage alive."
+  ],
+  "branchTemplates": [],
+  "hiddenChecks": [
+    {
+      "id": "stage2-main",
+      "title": "Main process entry still exists",
+      "category": "desktop",
+      "weight": 1.5,
+      "required": true,
+      "type": "globCount",
+      "pattern": "src/main.*",
+      "count": 1
+    },
+    {
+      "id": "stage2-renderer",
+      "title": "Renderer assets still exist",
+      "category": "ux",
+      "weight": 1.5,
+      "required": true,
+      "type": "globCount",
+      "pattern": "src/renderer/**",
+      "count": 1
+    },
+    {
+      "id": "stage2-people-system",
+      "title": "People system exists",
+      "category": "simulation",
+      "weight": 2,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/**/*employee*.*",
+        "src/**/*staff*.*",
+        "src/**/*team*.*",
+        "src/**/*hire*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage2-relationship-system",
+      "title": "Relationship or morale system exists",
+      "category": "simulation",
+      "weight": 2,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/**/*relationship*.*",
+        "src/**/*morale*.*",
+        "src/**/*burnout*.*",
+        "src/**/*fatigue*.*",
+        "src/**/*quirk*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage2-project-system",
+      "title": "Project or task system exists",
+      "category": "simulation",
+      "weight": 2,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/**/*project*.*",
+        "src/**/*task*.*",
+        "src/**/*backlog*.*",
+        "src/**/*sprint*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage2-part-output",
+      "title": "Project output references engine parts or components",
+      "category": "simulation",
+      "weight": 1.5,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/**/*part*.*",
+        "src/**/*component*.*",
+        "src/**/*blueprint*.*",
+        "src/**/*node*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage2-ui-team",
+      "title": "UI references hiring, staffing, or assignments",
+      "category": "ux",
+      "weight": 1,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/renderer/**",
+      "includes": [
+        "hire",
+        "staff",
+        "assignment",
+        "team",
+        "project"
+      ],
+      "mode": "any"
+    },
+    {
+      "id": "stage2-ui-stress",
+      "title": "UI references morale, burnout, relationship state, or performance pressure",
+      "category": "ux",
+      "weight": 1,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/renderer/**",
+      "includes": [
+        "burnout",
+        "morale",
+        "relationship",
+        "fatigue",
+        "quirk",
+        "performance",
+        "review",
+        "ranking"
+      ],
+      "mode": "any"
+    },
+    {
+      "id": "stage2-people-doc",
+      "title": "People systems doc exists",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "docs/people-systems.md"
+    },
+    {
+      "id": "stage2-tests",
+      "title": "Tests exist",
+      "category": "quality",
+      "weight": 1.5,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "test/**",
+        "src/*.test.*",
+        "src/**/*.test.*",
+        "src/*.spec.*",
+        "src/**/*.spec.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage2-readme",
+      "title": "README still covers development and core systems",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "textIncludes",
+      "path": "README.md",
+      "includes": [
+        "## Development",
+        "## Core Systems"
+      ],
+      "mode": "all"
+    }
+  ],
+  "judgeWeights": {
+    "simulation": 0.35,
+    "desktop": 0.15,
+    "ux": 0.2,
+    "quality": 0.15,
+    "docs": 0.1,
+    "repo": 0.05
+  },
+  "expectedRoleOutputs": {
+    "pm_tl_intake": [
+      "prioritized backlog",
+      "acceptance checklist",
+      "simulation risks",
+      "work breakdown"
+    ],
+    "planning": [
+      "implementation plan",
+      "test strategy",
+      "work breakdown"
+    ],
+    "execution": [
+      "repo changes",
+      "commands run",
+      "unresolved issues"
+    ],
+    "review": [
+      "code and simulation critique",
+      "repair recommendations"
+    ],
+    "pm_tl_reprioritization": [
+      "updated backlog",
+      "next-step notes",
+      "work breakdown"
+    ]
+  },
+  "successThreshold": 90,
+  "requireBaselineImprovement": false
+}

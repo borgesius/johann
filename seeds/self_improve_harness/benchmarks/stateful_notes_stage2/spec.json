@@ -1,0 +1,185 @@
+{
+  "id": "stateful_notes_stage2",
+  "title": "Stateful Notes Service, Stage 2",
+  "summary": "Extend the notes repo with history/audit behavior while preserving modularity.",
+  "artifactTarget": "Evolving notes service with audit trail",
+  "publicBriefFile": "benchmarks/stateful_notes_stage2/brief.md",
+  "workspaceSeed": "seeds/stateful_notes",
+  "budgets": {
+    "minMinutes": 20,
+    "maxMinutes": 120,
+    "defaultMinutes": 35
+  },
+  "acceptanceCriteria": [
+    "Preserve the existing notes workflow and src-based layout.",
+    "Add a history or audit capability through a separate module.",
+    "Keep the service operationally readable for another engineer.",
+    "Strengthen tests and documentation for the expanded state."
+  ],
+  "branchTemplates": [
+    {
+      "id": "audit_strategy",
+      "label": "Audit strategy",
+      "stage": "planning",
+      "maxKeep": 2,
+      "candidates": [
+        {
+          "id": "inline_audit_module",
+          "label": "Inline audit module",
+          "promptHint": "Favor a dedicated audit module wired directly into handlers and storage."
+        },
+        {
+          "id": "event_log_style",
+          "label": "Event log style",
+          "promptHint": "Favor a simple append-only event history and keep the app logic thin."
+        }
+      ]
+    }
+  ],
+  "hiddenChecks": [
+    {
+      "id": "stage2-package",
+      "title": "package.json exists",
+      "category": "repo",
+      "weight": 1,
+      "required": true,
+      "type": "fileExists",
+      "path": "package.json"
+    },
+    {
+      "id": "stage2-server",
+      "title": "Server entry exists",
+      "category": "product",
+      "weight": 1.5,
+      "required": true,
+      "type": "globCount",
+      "pattern": "src/server.*",
+      "count": 1
+    },
+    {
+      "id": "stage2-store",
+      "title": "Storage module still exists",
+      "category": "architecture",
+      "weight": 1.5,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/*store*.*",
+        "src/*storage*.*",
+        "src/*repo*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage2-audit",
+      "title": "Audit module exists",
+      "category": "architecture",
+      "weight": 2,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/*audit*.*",
+        "src/*history*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage2-notes-route",
+      "title": "Notes surface still exists",
+      "category": "product",
+      "weight": 1,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/server.*",
+      "includes": [
+        "/notes"
+      ],
+      "mode": "all"
+    },
+    {
+      "id": "stage2-history-route",
+      "title": "History or audit surface exists",
+      "category": "product",
+      "weight": 1,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/server.*",
+      "includes": [
+        "/history",
+        "/audit"
+      ],
+      "mode": "any"
+    },
+    {
+      "id": "stage2-ops-doc",
+      "title": "Operations doc exists",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "docs/operations.md"
+    },
+    {
+      "id": "stage2-tests",
+      "title": "Tests still pass",
+      "category": "quality",
+      "weight": 2,
+      "required": true,
+      "type": "commandExitZero",
+      "command": "npm test",
+      "timeoutSeconds": 120,
+      "env": {
+        "NODE_ENV": "test"
+      }
+    },
+    {
+      "id": "stage2-readme",
+      "title": "README covers development, operations, and architecture",
+      "category": "docs",
+      "weight": 1,
+      "required": true,
+      "type": "textIncludes",
+      "path": "README.md",
+      "includes": [
+        "## Development",
+        "## Operations",
+        "## Architecture"
+      ],
+      "mode": "all"
+    }
+  ],
+  "judgeWeights": {
+    "product": 0.25,
+    "architecture": 0.25,
+    "quality": 0.2,
+    "docs": 0.15,
+    "repo": 0.05,
+    "observability": 0.1
+  },
+  "expectedRoleOutputs": {
+    "pm_tl_intake": [
+      "backlog",
+      "state risks",
+      "architecture direction"
+    ],
+    "planning": [
+      "plan",
+      "branch recommendation",
+      "test strategy"
+    ],
+    "execution": [
+      "repo changes",
+      "commands run",
+      "unresolved issues"
+    ],
+    "review": [
+      "stateful review findings",
+      "repair recommendations"
+    ],
+    "pm_tl_reprioritization": [
+      "updated backlog",
+      "handoff notes"
+    ]
+  },
+  "successThreshold": 84
+}

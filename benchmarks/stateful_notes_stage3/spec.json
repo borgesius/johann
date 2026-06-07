@@ -1,0 +1,192 @@
+{
+  "id": "stateful_notes_stage3",
+  "title": "Stateful Notes Service, Stage 3",
+  "summary": "Add import/export and observability to a repo that has already accumulated state.",
+  "artifactTarget": "Later-stage notes service with import/export and observability",
+  "publicBriefFile": "benchmarks/stateful_notes_stage3/brief.md",
+  "workspaceSeed": "seeds/stateful_notes",
+  "budgets": {
+    "minMinutes": 20,
+    "maxMinutes": 120,
+    "defaultMinutes": 40
+  },
+  "acceptanceCriteria": [
+    "Preserve the earlier notes and history flows inside the existing src-based modular shape.",
+    "Add import and export style behavior without collapsing the repo into a monolith.",
+    "Document the observability story for the later-stage service.",
+    "Keep tests and docs believable for a repo that has seen several iterations."
+  ],
+  "branchTemplates": [
+    {
+      "id": "late_stage_flow",
+      "label": "Late-stage flow strategy",
+      "stage": "planning",
+      "maxKeep": 2,
+      "candidates": [
+        {
+          "id": "module_per_flow",
+          "label": "Module per flow",
+          "promptHint": "Favor dedicated import/export modules and keep handlers thin."
+        },
+        {
+          "id": "service_oriented",
+          "label": "Service-oriented",
+          "promptHint": "Favor a service layer that owns notes, history, import, and export behavior behind cleaner endpoints."
+        }
+      ]
+    }
+  ],
+  "hiddenChecks": [
+    {
+      "id": "stage3-package",
+      "title": "package.json exists",
+      "category": "repo",
+      "weight": 1,
+      "required": true,
+      "type": "fileExists",
+      "path": "package.json"
+    },
+    {
+      "id": "stage3-server",
+      "title": "Server entry exists",
+      "category": "product",
+      "weight": 1.5,
+      "required": true,
+      "type": "globCount",
+      "pattern": "src/server.*",
+      "count": 1
+    },
+    {
+      "id": "stage3-store-module",
+      "title": "Storage module still exists",
+      "category": "architecture",
+      "weight": 1,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/*store*.*",
+        "src/*storage*.*",
+        "src/*repo*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage3-audit-module",
+      "title": "Audit module still exists",
+      "category": "architecture",
+      "weight": 1,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/*audit*.*",
+        "src/*history*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage3-import-module",
+      "title": "Import module exists",
+      "category": "architecture",
+      "weight": 1.5,
+      "required": true,
+      "type": "globCount",
+      "pattern": "src/*import*.*",
+      "count": 1
+    },
+    {
+      "id": "stage3-export-module",
+      "title": "Export module exists",
+      "category": "architecture",
+      "weight": 1.5,
+      "required": true,
+      "type": "globCount",
+      "pattern": "src/*export*.*",
+      "count": 1
+    },
+    {
+      "id": "stage3-routes",
+      "title": "Import and export surfaces exist",
+      "category": "product",
+      "weight": 2,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/server.*",
+      "includes": [
+        "/import",
+        "/export"
+      ],
+      "mode": "all"
+    },
+    {
+      "id": "stage3-observability-doc",
+      "title": "Observability doc exists",
+      "category": "observability",
+      "weight": 2,
+      "required": true,
+      "type": "fileExists",
+      "path": "docs/observability.md"
+    },
+    {
+      "id": "stage3-tests",
+      "title": "Tests still pass",
+      "category": "quality",
+      "weight": 2,
+      "required": true,
+      "type": "commandExitZero",
+      "command": "npm test",
+      "timeoutSeconds": 120,
+      "env": {
+        "NODE_ENV": "test"
+      }
+    },
+    {
+      "id": "stage3-readme",
+      "title": "README covers development, operations, and architecture",
+      "category": "docs",
+      "weight": 1,
+      "required": true,
+      "type": "textIncludes",
+      "path": "README.md",
+      "includes": [
+        "## Development",
+        "## Operations",
+        "## Architecture"
+      ],
+      "mode": "all"
+    }
+  ],
+  "judgeWeights": {
+    "product": 0.25,
+    "architecture": 0.25,
+    "quality": 0.2,
+    "observability": 0.15,
+    "docs": 0.1,
+    "repo": 0.05
+  },
+  "expectedRoleOutputs": {
+    "pm_tl_intake": [
+      "backlog",
+      "state risks",
+      "architecture direction"
+    ],
+    "planning": [
+      "plan",
+      "branch recommendation",
+      "test strategy"
+    ],
+    "execution": [
+      "repo changes",
+      "commands run",
+      "unresolved issues"
+    ],
+    "review": [
+      "stateful review findings",
+      "repair recommendations"
+    ],
+    "pm_tl_reprioritization": [
+      "updated backlog",
+      "handoff notes"
+    ]
+  },
+  "successThreshold": 85
+}

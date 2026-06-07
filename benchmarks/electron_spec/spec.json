@@ -1,0 +1,147 @@
+{
+  "id": "electron_spec",
+  "title": "Electron From Design Spec",
+  "summary": "Turn a design-led brief into a production-like Electron repository with packaging-aware structure and smoke coverage.",
+  "artifactTarget": "Production-like Electron repo",
+  "publicBriefFile": "benchmarks/electron_spec/brief.md",
+  "workspaceSeed": "seeds/electron_spec",
+  "budgets": {
+    "minMinutes": 20,
+    "maxMinutes": 120,
+    "defaultMinutes": 45
+  },
+  "acceptanceCriteria": [
+    "Ship a coherent Electron shell with main, preload, and renderer entry points.",
+    "Keep the repo readable for a senior engineer reviewing it cold.",
+    "Include development and packaging guidance in docs.",
+    "Add at least one smoke test or equivalent confidence mechanism."
+  ],
+  "branchTemplates": [
+    {
+      "id": "window_shell",
+      "label": "Window shell strategy",
+      "stage": "planning",
+      "maxKeep": 2,
+      "candidates": [
+        {
+          "id": "native_menu_shell",
+          "label": "Native menu shell",
+          "promptHint": "Lean into native menus, keyboard shortcuts, and a conservative shell."
+        },
+        {
+          "id": "custom_chrome",
+          "label": "Custom chrome shell",
+          "promptHint": "Lean into a more custom UI shell with a stylized window surface."
+        }
+      ]
+    }
+  ],
+  "hiddenChecks": [
+    {
+      "id": "electron-package",
+      "title": "package.json exists",
+      "category": "repo",
+      "weight": 2,
+      "required": true,
+      "type": "fileExists",
+      "path": "package.json"
+    },
+    {
+      "id": "electron-main",
+      "title": "Main process entry exists",
+      "category": "desktop",
+      "weight": 2,
+      "required": true,
+      "type": "globCount",
+      "pattern": "src/main.*",
+      "count": 1
+    },
+    {
+      "id": "electron-preload",
+      "title": "Preload entry exists",
+      "category": "desktop",
+      "weight": 1,
+      "type": "globCount",
+      "pattern": "src/preload.*",
+      "count": 1
+    },
+    {
+      "id": "electron-renderer",
+      "title": "Renderer assets exist",
+      "category": "ux",
+      "weight": 1,
+      "type": "globCount",
+      "pattern": "src/renderer/**",
+      "count": 1
+    },
+    {
+      "id": "electron-tests",
+      "title": "Test coverage exists",
+      "category": "quality",
+      "weight": 1.5,
+      "required": true,
+      "type": "globCount",
+      "pattern": "test/**",
+      "count": 1
+    },
+    {
+      "id": "electron-readme",
+      "title": "README covers development and packaging",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "textIncludes",
+      "path": "README.md",
+      "includes": [
+        "## Development",
+        "## Packaging"
+      ],
+      "mode": "all"
+    },
+    {
+      "id": "electron-test-script",
+      "title": "package.json references tests",
+      "category": "quality",
+      "weight": 1,
+      "type": "textIncludes",
+      "path": "package.json",
+      "includes": [
+        "\"test\""
+      ],
+      "mode": "all"
+    }
+  ],
+  "judgeWeights": {
+    "desktop": 0.35,
+    "quality": 0.25,
+    "docs": 0.2,
+    "repo": 0.1,
+    "ux": 0.1
+  },
+  "expectedRoleOutputs": {
+    "pm_tl_intake": [
+      "prioritized backlog",
+      "acceptance checklist",
+      "branch recommendation"
+    ],
+    "planning": [
+      "implementation plan",
+      "test strategy",
+      "risks"
+    ],
+    "execution": [
+      "repo changes",
+      "commands run",
+      "unresolved issues"
+    ],
+    "review": [
+      "code critique",
+      "repair recommendations"
+    ],
+    "pm_tl_reprioritization": [
+      "updated backlog",
+      "next-step notes"
+    ]
+  },
+  "successThreshold": 80
+}

@@ -1,0 +1,165 @@
+{
+  "id": "release_orch_stage4_operator_console",
+  "title": "Release Orchestration Stage 4: Operator Console",
+  "summary": "Build the operator webapp that visualizes queue state, impact, run timelines, and release readiness.",
+  "artifactTarget": "Release orchestration operator console",
+  "publicBriefFile": "benchmarks/release_orch_stage4_operator_console/brief.md",
+  "workspaceSeed": "seeds/release_orch_stage4_operator_console",
+  "budgets": {
+    "minMinutes": 30,
+    "maxMinutes": 120,
+    "defaultMinutes": 70
+  },
+  "acceptanceCriteria": [
+    "Make the operator console visibly useful for queue, impact, and run-state inspection.",
+    "Expose release queue, service graph, and run timeline concepts in the webapp.",
+    "Keep the UI readable and operational, not graphics-heavy.",
+    "Leave behind docs and tests, and make the app pass a real browser smoke check."
+  ],
+  "branchTemplates": [
+    {
+      "id": "console_ia",
+      "label": "Console information architecture",
+      "stage": "planning",
+      "maxKeep": 2,
+      "candidates": [
+        {
+          "id": "queue_first",
+          "label": "Queue-first",
+          "promptHint": "Lead with releases, queue state, and approvals, then show impact and runtime detail."
+        },
+        {
+          "id": "graph_first",
+          "label": "Graph-first",
+          "promptHint": "Lead with dependency and impact views, then connect them to release runs and queue actions."
+        }
+      ]
+    }
+  ],
+  "hiddenChecks": [
+    {
+      "id": "release-console-dashboard",
+      "title": "Dashboard view exists",
+      "category": "ux",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "src/web/views/dashboard.js"
+    },
+    {
+      "id": "release-console-queue-view",
+      "title": "Release queue view exists",
+      "category": "ux",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "src/web/views/release-queue.js"
+    },
+    {
+      "id": "release-console-copy",
+      "title": "Webapp references queue, graph, and timeline concepts",
+      "category": "ux",
+      "weight": 2,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/web/**",
+      "includes": [
+        "Release Queue",
+        "Service Graph",
+        "Run Timeline",
+        "Impact Graph"
+      ],
+      "mode": "any"
+    },
+    {
+      "id": "release-console-doc",
+      "title": "Operator console doc exists",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "docs/operator-console.md"
+    },
+    {
+      "id": "release-console-readme",
+      "title": "README covers operator console",
+      "category": "docs",
+      "weight": 1,
+      "required": true,
+      "type": "textIncludes",
+      "path": "README.md",
+      "includes": [
+        "## Operator Console"
+      ],
+      "mode": "all"
+    },
+    {
+      "id": "release-console-browser-smoke",
+      "title": "Operator console loads in a browser smoke check",
+      "category": "quality",
+      "weight": 2.5,
+      "required": true,
+      "type": "appSmoke",
+      "appTarget": "browser",
+      "startCommand": "PORT=4173 npm run start",
+      "url": "http://127.0.0.1:4173",
+      "waitForSelector": "#app",
+      "waitForText": [
+        "Release Queue",
+        "Service Graph"
+      ],
+      "timeoutSeconds": 45,
+      "screenshotName": "operator-console.png"
+    },
+    {
+      "id": "release-console-tests",
+      "title": "Tests pass",
+      "category": "quality",
+      "weight": 1.5,
+      "required": true,
+      "type": "commandExitZero",
+      "command": "npm test",
+      "timeoutSeconds": 60,
+      "env": {
+        "NODE_ENV": "test"
+      }
+    }
+  ],
+  "judgeWeights": {
+    "ux": 0.35,
+    "quality": 0.25,
+    "docs": 0.15,
+    "product": 0.15,
+    "repo": 0.1
+  },
+  "expectedRoleOutputs": {
+    "pm_tl_intake": [
+      "console backlog",
+      "acceptance checklist",
+      "ux risks",
+      "work breakdown"
+    ],
+    "planning": [
+      "console plan",
+      "branch recommendation",
+      "test strategy",
+      "work breakdown"
+    ],
+    "execution": [
+      "repo changes",
+      "commands run",
+      "unresolved issues"
+    ],
+    "review": [
+      "console critique",
+      "repair recommendations"
+    ],
+    "pm_tl_reprioritization": [
+      "updated console queue",
+      "next-step notes",
+      "work breakdown"
+    ]
+  },
+  "successThreshold": 86,
+  "requireBaselineImprovement": false
+}

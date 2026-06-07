@@ -1,0 +1,161 @@
+{
+  "id": "release_orch_stage3_runtime_ledger",
+  "title": "Release Orchestration Stage 3: Runtime And Ledger",
+  "summary": "Build the simulated execution runtime, release-run state machine, adapters, and event ledger.",
+  "artifactTarget": "Release orchestration runtime and ledger",
+  "publicBriefFile": "benchmarks/release_orch_stage3_runtime_ledger/brief.md",
+  "workspaceSeed": "seeds/release_orch_stage3_runtime_ledger",
+  "budgets": {
+    "minMinutes": 30,
+    "maxMinutes": 120,
+    "defaultMinutes": 70
+  },
+  "acceptanceCriteria": [
+    "Execute simulated release plans through deploy, test, verification, and rollback steps.",
+    "Keep a readable run ledger or event stream that later UI stages can render.",
+    "Model queueing and rollback as first-class product behaviors.",
+    "Leave behind docs and tests that prove the runtime works."
+  ],
+  "branchTemplates": [
+    {
+      "id": "runtime_shape",
+      "label": "Runtime shape",
+      "stage": "planning",
+      "maxKeep": 2,
+      "candidates": [
+        {
+          "id": "event_stream",
+          "label": "Event stream",
+          "promptHint": "Represent runtime progress as append-only run events that drive state."
+        },
+        {
+          "id": "state_machine",
+          "label": "State machine",
+          "promptHint": "Represent runtime progress as an explicit workflow state machine with transitions and history."
+        }
+      ]
+    }
+  ],
+  "hiddenChecks": [
+    {
+      "id": "release-runtime-runner",
+      "title": "Release runner exists",
+      "category": "product",
+      "weight": 2,
+      "required": true,
+      "type": "fileExists",
+      "path": "src/runtime/release-runner.js"
+    },
+    {
+      "id": "release-runtime-ledger",
+      "title": "Run ledger exists",
+      "category": "product",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "src/runtime/run-ledger.js"
+    },
+    {
+      "id": "release-runtime-adapters",
+      "title": "Simulated adapters exist",
+      "category": "simulation",
+      "weight": 2,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/adapters/fake-*.js",
+        "src/adapters/sim-*.js"
+      ],
+      "count": 2
+    },
+    {
+      "id": "release-runtime-copy",
+      "title": "Runtime references queueing and rollback",
+      "category": "domain",
+      "weight": 1.5,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/runtime/**",
+      "includes": [
+        "queue",
+        "rollback",
+        "verification",
+        "event"
+      ],
+      "mode": "any"
+    },
+    {
+      "id": "release-runtime-doc",
+      "title": "Runtime doc exists",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "docs/runtime.md"
+    },
+    {
+      "id": "release-runtime-readme",
+      "title": "README covers runtime and ledger",
+      "category": "docs",
+      "weight": 1,
+      "required": true,
+      "type": "textIncludes",
+      "path": "README.md",
+      "includes": [
+        "## Runtime and Ledger"
+      ],
+      "mode": "all"
+    },
+    {
+      "id": "release-runtime-tests",
+      "title": "Runtime tests pass",
+      "category": "quality",
+      "weight": 2,
+      "required": true,
+      "type": "commandExitZero",
+      "command": "npm test",
+      "timeoutSeconds": 60,
+      "env": {
+        "NODE_ENV": "test"
+      }
+    }
+  ],
+  "judgeWeights": {
+    "product": 0.3,
+    "domain": 0.15,
+    "simulation": 0.2,
+    "docs": 0.1,
+    "quality": 0.15,
+    "repo": 0.1
+  },
+  "expectedRoleOutputs": {
+    "pm_tl_intake": [
+      "runtime backlog",
+      "acceptance checklist",
+      "runtime risks",
+      "work breakdown"
+    ],
+    "planning": [
+      "runtime plan",
+      "branch recommendation",
+      "test strategy",
+      "work breakdown"
+    ],
+    "execution": [
+      "repo changes",
+      "commands run",
+      "unresolved issues"
+    ],
+    "review": [
+      "runtime critique",
+      "repair recommendations"
+    ],
+    "pm_tl_reprioritization": [
+      "updated runtime queue",
+      "next-step notes",
+      "work breakdown"
+    ]
+  },
+  "successThreshold": 86,
+  "requireBaselineImprovement": false
+}

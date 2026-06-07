@@ -1,0 +1,157 @@
+{
+  "id": "release_orch_stage6_adapters_observability",
+  "title": "Release Orchestration Stage 6: Adapters And Observability",
+  "summary": "Add provider contracts, audit logging, metrics, and operational docs to finish the clean-room release product.",
+  "artifactTarget": "Release orchestration adapter and observability layer",
+  "publicBriefFile": "benchmarks/release_orch_stage6_adapters_observability/brief.md",
+  "workspaceSeed": "seeds/release_orch_stage6_adapters_observability",
+  "budgets": {
+    "minMinutes": 30,
+    "maxMinutes": 120,
+    "defaultMinutes": 75
+  },
+  "acceptanceCriteria": [
+    "Expose clean adapter contracts for future real provider integrations.",
+    "Add audit and observability surfaces for release decisions and runtime evidence.",
+    "Keep these seams generic and clean-room, not vendor-locked.",
+    "Leave behind docs and tests that make the platform feel operationally credible."
+  ],
+  "branchTemplates": [
+    {
+      "id": "integration_boundary",
+      "label": "Integration boundary",
+      "stage": "planning",
+      "maxKeep": 2,
+      "candidates": [
+        {
+          "id": "contract_first",
+          "label": "Contract-first",
+          "promptHint": "Favor explicit provider contracts and audit interfaces over a richer adapter registry."
+        },
+        {
+          "id": "registry_first",
+          "label": "Registry-first",
+          "promptHint": "Favor a simple adapter registry and runtime wiring layer, while still documenting stable provider contracts."
+        }
+      ]
+    }
+  ],
+  "hiddenChecks": [
+    {
+      "id": "release-adapter-contract",
+      "title": "Provider contract exists",
+      "category": "product",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "src/adapters/provider-contract.js"
+    },
+    {
+      "id": "release-audit-log",
+      "title": "Audit log exists",
+      "category": "observability",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "src/observability/audit-log.js"
+    },
+    {
+      "id": "release-metrics",
+      "title": "Metrics surface exists",
+      "category": "observability",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "src/observability/metrics.js"
+    },
+    {
+      "id": "release-observability-copy",
+      "title": "Observability code references audit or metrics concepts",
+      "category": "observability",
+      "weight": 1.5,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/observability/**",
+      "includes": [
+        "audit",
+        "metric",
+        "trace",
+        "event"
+      ],
+      "mode": "any"
+    },
+    {
+      "id": "release-integrations-doc",
+      "title": "Integration boundary doc exists",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "docs/integrations.md"
+    },
+    {
+      "id": "release-final-readme",
+      "title": "README covers adapter contracts and audit surfaces",
+      "category": "docs",
+      "weight": 1,
+      "required": true,
+      "type": "textIncludes",
+      "path": "README.md",
+      "includes": [
+        "## Adapter Contracts",
+        "## Audit and Observability"
+      ],
+      "mode": "all"
+    },
+    {
+      "id": "release-final-tests",
+      "title": "Tests pass",
+      "category": "quality",
+      "weight": 2,
+      "required": true,
+      "type": "commandExitZero",
+      "command": "npm test",
+      "timeoutSeconds": 60,
+      "env": {
+        "NODE_ENV": "test"
+      }
+    }
+  ],
+  "judgeWeights": {
+    "product": 0.2,
+    "observability": 0.3,
+    "docs": 0.2,
+    "quality": 0.2,
+    "repo": 0.1
+  },
+  "expectedRoleOutputs": {
+    "pm_tl_intake": [
+      "adapter backlog",
+      "acceptance checklist",
+      "integration risks",
+      "work breakdown"
+    ],
+    "planning": [
+      "adapter plan",
+      "branch recommendation",
+      "test strategy",
+      "work breakdown"
+    ],
+    "execution": [
+      "repo changes",
+      "commands run",
+      "unresolved issues"
+    ],
+    "review": [
+      "adapter and observability critique",
+      "repair recommendations"
+    ],
+    "pm_tl_reprioritization": [
+      "updated adapter queue",
+      "next-step notes",
+      "work breakdown"
+    ]
+  },
+  "successThreshold": 88,
+  "requireBaselineImprovement": false
+}

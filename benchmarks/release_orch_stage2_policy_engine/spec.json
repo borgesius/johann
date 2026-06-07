@@ -1,0 +1,156 @@
+{
+  "id": "release_orch_stage2_policy_engine",
+  "title": "Release Orchestration Stage 2: Policy Engine",
+  "summary": "Build the release planner, test-selection logic, and explainable policy engine on top of the simulated fleet.",
+  "artifactTarget": "Release orchestration planning engine",
+  "publicBriefFile": "benchmarks/release_orch_stage2_policy_engine/brief.md",
+  "workspaceSeed": "seeds/release_orch_stage2_policy_engine",
+  "budgets": {
+    "minMinutes": 30,
+    "maxMinutes": 120,
+    "defaultMinutes": 60
+  },
+  "acceptanceCriteria": [
+    "Create a planner that turns a release request into an explainable release plan.",
+    "Select downstream and cross-service checks from the service graph and policy model.",
+    "Keep the planner generic and simulated, with no provider-specific workflow assumptions.",
+    "Leave behind docs and tests that explain the planning engine."
+  ],
+  "branchTemplates": [
+    {
+      "id": "planner_shape",
+      "label": "Planner shape",
+      "stage": "planning",
+      "maxKeep": 2,
+      "candidates": [
+        {
+          "id": "rule_graph",
+          "label": "Rule graph",
+          "promptHint": "Model release decisions as a small, explicit rule graph with explainable outputs."
+        },
+        {
+          "id": "policy_pipeline",
+          "label": "Policy pipeline",
+          "promptHint": "Model release planning as a pipeline of impact analysis, test selection, and promotion-rule evaluation."
+        }
+      ]
+    }
+  ],
+  "hiddenChecks": [
+    {
+      "id": "release-planner-file",
+      "title": "Release planner exists",
+      "category": "product",
+      "weight": 2,
+      "required": true,
+      "type": "fileExists",
+      "path": "src/planner/release-planner.js"
+    },
+    {
+      "id": "release-test-selection-file",
+      "title": "Test selection exists",
+      "category": "product",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "src/planner/test-selection.js"
+    },
+    {
+      "id": "release-request-model",
+      "title": "Release request model exists",
+      "category": "domain",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "src/domain/release-request.js"
+    },
+    {
+      "id": "release-planner-copy",
+      "title": "Planner references impact and downstream logic",
+      "category": "domain",
+      "weight": 2,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/planner/**",
+      "includes": [
+        "impacted",
+        "downstream",
+        "integration",
+        "explain"
+      ],
+      "mode": "any"
+    },
+    {
+      "id": "release-policy-doc",
+      "title": "Policy engine doc exists",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "docs/policy-engine.md"
+    },
+    {
+      "id": "release-planner-readme",
+      "title": "README covers planning engine",
+      "category": "docs",
+      "weight": 1,
+      "required": true,
+      "type": "textIncludes",
+      "path": "README.md",
+      "includes": [
+        "## Planning Engine"
+      ],
+      "mode": "all"
+    },
+    {
+      "id": "release-planner-tests",
+      "title": "Tests pass",
+      "category": "quality",
+      "weight": 2,
+      "required": true,
+      "type": "commandExitZero",
+      "command": "npm test",
+      "timeoutSeconds": 60,
+      "env": {
+        "NODE_ENV": "test"
+      }
+    }
+  ],
+  "judgeWeights": {
+    "product": 0.3,
+    "domain": 0.25,
+    "docs": 0.15,
+    "quality": 0.2,
+    "repo": 0.1
+  },
+  "expectedRoleOutputs": {
+    "pm_tl_intake": [
+      "planner backlog",
+      "acceptance checklist",
+      "product risks",
+      "work breakdown"
+    ],
+    "planning": [
+      "planner implementation plan",
+      "branch recommendation",
+      "test strategy",
+      "work breakdown"
+    ],
+    "execution": [
+      "repo changes",
+      "commands run",
+      "unresolved issues"
+    ],
+    "review": [
+      "planning-engine critique",
+      "repair recommendations"
+    ],
+    "pm_tl_reprioritization": [
+      "updated planner queue",
+      "next-step notes",
+      "work breakdown"
+    ]
+  },
+  "successThreshold": 86,
+  "requireBaselineImprovement": false
+}

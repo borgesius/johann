@@ -1,0 +1,207 @@
+{
+  "id": "hft_firm_stage3_markets_engine",
+  "title": "HFT Firm Game Stage 3: Markets And Engine",
+  "summary": "Add market reach, latency, exchange access, and a trading-engine board whose parts interact with those conditions.",
+  "artifactTarget": "Electron market and engine systems slice",
+  "publicBriefFile": "benchmarks/hft_firm_stage3_markets_engine/brief.md",
+  "workspaceSeed": "seeds/hft_firm_stage3_markets_engine",
+  "budgets": {
+    "minMinutes": 60,
+    "maxMinutes": 180,
+    "defaultMinutes": 105
+  },
+  "acceptanceCriteria": [
+    "Preserve the prior shell and people/project simulation while adding market and engine systems.",
+    "Represent market reach through routes, map choices, wiring, or exchange access with latency as a first-class stat.",
+    "Represent the trading engine as a board, grid, or node composition system.",
+    "Make the interaction between markets, latency, and engine composition visible in the UI.",
+    "Document the market-engine interaction and keep tests or smoke coverage working."
+  ],
+  "branchTemplates": [],
+  "hiddenChecks": [
+    {
+      "id": "stage3-people-system",
+      "title": "People system is still present",
+      "category": "simulation",
+      "weight": 1.5,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/**/*employee*.*",
+        "src/**/*staff*.*",
+        "src/**/*team*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage3-project-system",
+      "title": "Project or task system is still present",
+      "category": "simulation",
+      "weight": 1.5,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/**/*project*.*",
+        "src/**/*task*.*",
+        "src/**/*backlog*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage3-market-system",
+      "title": "Market or exchange system exists",
+      "category": "simulation",
+      "weight": 2,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/**/*market*.*",
+        "src/**/*exchange*.*",
+        "src/**/*venue*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage3-route-system",
+      "title": "Route or network system exists",
+      "category": "simulation",
+      "weight": 2,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/**/*route*.*",
+        "src/**/*network*.*",
+        "src/**/*wire*.*",
+        "src/**/*map*.*",
+        "src/**/*latency*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage3-engine-system",
+      "title": "Engine board or node system exists",
+      "category": "simulation",
+      "weight": 2,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/**/*engine*.*",
+        "src/**/*node*.*",
+        "src/**/*grid*.*",
+        "src/**/*slot*.*",
+        "src/**/*algorithm*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage3-ui-market",
+      "title": "UI references market reach and latency",
+      "category": "ux",
+      "weight": 1,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/renderer/**",
+      "includes": [
+        "market",
+        "exchange",
+        "route",
+        "latency",
+        "network"
+      ],
+      "mode": "any"
+    },
+    {
+      "id": "stage3-ui-engine",
+      "title": "UI references engine-board concepts",
+      "category": "ux",
+      "weight": 1,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/renderer/**",
+      "includes": [
+        "engine",
+        "grid",
+        "node",
+        "slot",
+        "algorithm"
+      ],
+      "mode": "any"
+    },
+    {
+      "id": "stage3-market-doc",
+      "title": "Market and engine interaction doc exists",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "docs/market-engine.md"
+    },
+    {
+      "id": "stage3-tests",
+      "title": "Tests exist",
+      "category": "quality",
+      "weight": 1.5,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "test/**",
+        "src/*.test.*",
+        "src/**/*.test.*",
+        "src/*.spec.*",
+        "src/**/*.spec.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage3-readme",
+      "title": "README still covers development and core systems",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "textIncludes",
+      "path": "README.md",
+      "includes": [
+        "## Development",
+        "## Core Systems"
+      ],
+      "mode": "all"
+    }
+  ],
+  "judgeWeights": {
+    "simulation": 0.4,
+    "desktop": 0.1,
+    "ux": 0.2,
+    "quality": 0.15,
+    "docs": 0.1,
+    "repo": 0.05
+  },
+  "expectedRoleOutputs": {
+    "pm_tl_intake": [
+      "prioritized backlog",
+      "acceptance checklist",
+      "simulation risks",
+      "work breakdown"
+    ],
+    "planning": [
+      "implementation plan",
+      "test strategy",
+      "work breakdown"
+    ],
+    "execution": [
+      "repo changes",
+      "commands run",
+      "unresolved issues"
+    ],
+    "review": [
+      "code and simulation critique",
+      "repair recommendations"
+    ],
+    "pm_tl_reprioritization": [
+      "updated backlog",
+      "next-step notes",
+      "work breakdown"
+    ]
+  },
+  "successThreshold": 91,
+  "requireBaselineImprovement": false
+}

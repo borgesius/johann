@@ -1,0 +1,228 @@
+{
+  "id": "hft_firm_stage1_foundation",
+  "title": "HFT Firm Game Stage 1: Foundation",
+  "summary": "Bootstrap the Electron shell, architecture, and top-level management dashboard for the HFT firm game.",
+  "artifactTarget": "Electron game foundation repo",
+  "publicBriefFile": "benchmarks/hft_firm_stage1_foundation/brief.md",
+  "workspaceSeed": "seeds/hft_firm_stage1_foundation",
+  "budgets": {
+    "minMinutes": 45,
+    "maxMinutes": 180,
+    "defaultMinutes": 90
+  },
+  "acceptanceCriteria": [
+    "Ship a coherent Electron shell with main, preload, and renderer entry points.",
+    "Create a digestible top-level management dashboard with a strong 90s office / terminal feel.",
+    "Expose clear surfaces for staff, markets, projects, and trading-engine systems.",
+    "Lay down a readable architecture that later stages can extend without a rewrite.",
+    "Include core docs and at least one smoke or automated test path."
+  ],
+  "branchTemplates": [
+    {
+      "id": "primary_surface",
+      "label": "Primary management surface",
+      "stage": "planning",
+      "maxKeep": 2,
+      "candidates": [
+        {
+          "id": "ops_terminal",
+          "label": "Ops terminal",
+          "promptHint": "Lean into terminal dashboards, operations panels, and dense management tables."
+        },
+        {
+          "id": "office_command_center",
+          "label": "Office command center",
+          "promptHint": "Lean into a spatial office-management shell with linked command panels."
+        }
+      ]
+    }
+  ],
+  "hiddenChecks": [
+    {
+      "id": "stage1-package",
+      "title": "package.json exists",
+      "category": "repo",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "package.json"
+    },
+    {
+      "id": "stage1-main",
+      "title": "Main process entry exists",
+      "category": "desktop",
+      "weight": 2,
+      "required": true,
+      "type": "globCount",
+      "pattern": "src/main.*",
+      "count": 1
+    },
+    {
+      "id": "stage1-preload",
+      "title": "Preload entry exists",
+      "category": "desktop",
+      "weight": 1,
+      "required": true,
+      "type": "globCount",
+      "pattern": "src/preload.*",
+      "count": 1
+    },
+    {
+      "id": "stage1-renderer",
+      "title": "Renderer assets exist",
+      "category": "ux",
+      "weight": 1.5,
+      "required": true,
+      "type": "globCount",
+      "pattern": "src/renderer/**",
+      "count": 1
+    },
+    {
+      "id": "stage1-state-model",
+      "title": "Simulation state or model files exist",
+      "category": "simulation",
+      "weight": 1.5,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/**/*state*.*",
+        "src/**/*model*.*",
+        "src/**/*sim*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage1-ui-staff",
+      "title": "UI references staff or team",
+      "category": "ux",
+      "weight": 1,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/renderer/**",
+      "includes": [
+        "staff",
+        "team",
+        "employee"
+      ],
+      "mode": "any"
+    },
+    {
+      "id": "stage1-ui-market",
+      "title": "UI references markets or latency",
+      "category": "ux",
+      "weight": 1,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/renderer/**",
+      "includes": [
+        "market",
+        "latency",
+        "exchange",
+        "network"
+      ],
+      "mode": "any"
+    },
+    {
+      "id": "stage1-ui-engine",
+      "title": "UI references engine or grid concepts",
+      "category": "ux",
+      "weight": 1,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/renderer/**",
+      "includes": [
+        "engine",
+        "grid",
+        "node",
+        "algorithm"
+      ],
+      "mode": "any"
+    },
+    {
+      "id": "stage1-game-design",
+      "title": "Game design doc exists",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "docs/game-design.md"
+    },
+    {
+      "id": "stage1-architecture-doc",
+      "title": "Architecture doc exists",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "docs/architecture.md"
+    },
+    {
+      "id": "stage1-tests",
+      "title": "Tests exist",
+      "category": "quality",
+      "weight": 1.5,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "test/**",
+        "src/*.test.*",
+        "src/**/*.test.*",
+        "src/*.spec.*",
+        "src/**/*.spec.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage1-readme",
+      "title": "README covers development and core systems",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "textIncludes",
+      "path": "README.md",
+      "includes": [
+        "## Development",
+        "## Core Systems"
+      ],
+      "mode": "all"
+    }
+  ],
+  "judgeWeights": {
+    "simulation": 0.2,
+    "desktop": 0.25,
+    "ux": 0.2,
+    "quality": 0.15,
+    "docs": 0.15,
+    "repo": 0.05
+  },
+  "expectedRoleOutputs": {
+    "pm_tl_intake": [
+      "prioritized backlog",
+      "acceptance checklist",
+      "simulation risks",
+      "work breakdown"
+    ],
+    "planning": [
+      "implementation plan",
+      "branch recommendation",
+      "test strategy",
+      "work breakdown"
+    ],
+    "execution": [
+      "repo changes",
+      "commands run",
+      "unresolved issues"
+    ],
+    "review": [
+      "code and simulation critique",
+      "repair recommendations"
+    ],
+    "pm_tl_reprioritization": [
+      "updated backlog",
+      "next-step notes",
+      "work breakdown"
+    ]
+  },
+  "successThreshold": 88,
+  "requireBaselineImprovement": false
+}

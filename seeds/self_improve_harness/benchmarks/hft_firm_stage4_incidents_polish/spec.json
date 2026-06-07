@@ -1,0 +1,196 @@
+{
+  "id": "hft_firm_stage4_incidents_polish",
+  "title": "HFT Firm Game Stage 4: Incidents And Polish",
+  "summary": "Add incidents, progression, onboarding, and player-facing polish to make the HFT game feel robust and comprehensible.",
+  "artifactTarget": "Electron polished HFT game slice",
+  "publicBriefFile": "benchmarks/hft_firm_stage4_incidents_polish/brief.md",
+  "workspaceSeed": "seeds/hft_firm_stage4_incidents_polish",
+  "budgets": {
+    "minMinutes": 60,
+    "maxMinutes": 180,
+    "defaultMinutes": 105
+  },
+  "acceptanceCriteria": [
+    "Preserve the earlier simulation systems while adding incidents, progression, and onboarding.",
+    "Represent plausible failures or near-fiascos driven by management decisions.",
+    "Improve early-game digestibility with help, onboarding, or tutorial affordances.",
+    "Expose event history, alerts, or logs so players can understand what happened.",
+    "Document the balancing and incident logic and keep tests or smoke coverage alive."
+  ],
+  "branchTemplates": [],
+  "hiddenChecks": [
+    {
+      "id": "stage4-incident-system",
+      "title": "Incident or risk system exists",
+      "category": "simulation",
+      "weight": 2,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/**/*incident*.*",
+        "src/**/*risk*.*",
+        "src/**/*event*.*",
+        "src/**/*failure*.*",
+        "src/**/*alert*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage4-progression-system",
+      "title": "Progression or economy system exists",
+      "category": "simulation",
+      "weight": 2,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/**/*economy*.*",
+        "src/**/*progress*.*",
+        "src/**/*finance*.*",
+        "src/**/*cashflow*.*",
+        "src/**/*upgrade*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage4-onboarding-system",
+      "title": "Onboarding or tutorial system exists",
+      "category": "ux",
+      "weight": 1.5,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/**/*tutorial*.*",
+        "src/**/*onboard*.*",
+        "src/**/*guide*.*",
+        "src/**/*help*.*",
+        "src/**/*hint*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage4-history-system",
+      "title": "History, log, or timeline system exists",
+      "category": "ux",
+      "weight": 1.5,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/**/*history*.*",
+        "src/**/*log*.*",
+        "src/**/*timeline*.*",
+        "src/**/*feed*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage4-ui-incident",
+      "title": "UI references incidents or alerts",
+      "category": "ux",
+      "weight": 1,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/renderer/**",
+      "includes": [
+        "incident",
+        "risk",
+        "alert",
+        "failure",
+        "event"
+      ],
+      "mode": "any"
+    },
+    {
+      "id": "stage4-ui-onboarding",
+      "title": "UI references onboarding or help",
+      "category": "ux",
+      "weight": 1,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/renderer/**",
+      "includes": [
+        "tutorial",
+        "guide",
+        "help",
+        "onboarding",
+        "hint"
+      ],
+      "mode": "any"
+    },
+    {
+      "id": "stage4-balance-doc",
+      "title": "Balance and incidents doc exists",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "docs/balance-and-incidents.md"
+    },
+    {
+      "id": "stage4-tests",
+      "title": "Tests exist",
+      "category": "quality",
+      "weight": 1.5,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "test/**",
+        "src/*.test.*",
+        "src/**/*.test.*",
+        "src/*.spec.*",
+        "src/**/*.spec.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage4-readme",
+      "title": "README still covers development and core systems",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "textIncludes",
+      "path": "README.md",
+      "includes": [
+        "## Development",
+        "## Core Systems"
+      ],
+      "mode": "all"
+    }
+  ],
+  "judgeWeights": {
+    "simulation": 0.35,
+    "desktop": 0.1,
+    "ux": 0.2,
+    "quality": 0.15,
+    "docs": 0.15,
+    "repo": 0.05
+  },
+  "expectedRoleOutputs": {
+    "pm_tl_intake": [
+      "prioritized backlog",
+      "acceptance checklist",
+      "simulation risks",
+      "work breakdown"
+    ],
+    "planning": [
+      "implementation plan",
+      "test strategy",
+      "work breakdown"
+    ],
+    "execution": [
+      "repo changes",
+      "commands run",
+      "unresolved issues"
+    ],
+    "review": [
+      "code and simulation critique",
+      "repair recommendations"
+    ],
+    "pm_tl_reprioritization": [
+      "updated backlog",
+      "next-step notes",
+      "work breakdown"
+    ]
+  },
+  "successThreshold": 92,
+  "requireBaselineImprovement": false
+}

@@ -1,0 +1,208 @@
+{
+  "id": "philosophy_becoming_site",
+  "title": "Becoming Philosophy Site",
+  "summary": "Build an elaborate TypeScript website that presents a becoming-first philosophical worldview through an intentional web experience, not just a generic essay shell.",
+  "artifactTarget": "Elaborate philosophy website repo",
+  "publicBriefFile": "benchmarks/philosophy_becoming_site/brief.md",
+  "workspaceSeed": "seeds/philosophy_becoming_site",
+  "budgets": {
+    "minMinutes": 30,
+    "maxMinutes": 300,
+    "defaultMinutes": 90
+  },
+  "acceptanceCriteria": [
+    "Ship a coherent, runnable website rather than a static text dump.",
+    "Present a clear becoming-first thesis with original synthesis, not just namedrop-heavy summary.",
+    "Include both structured exposition and a more fragmentary or aphoristic exploratory mode.",
+    "Use at least one meaningful interactive conceptual surface such as a map, notebook, navigator, graph, or simulator.",
+    "Leave a readable repo with docs and at least one meaningful validation path."
+  ],
+  "branchTemplates": [
+    {
+      "id": "site_shape",
+      "label": "Site shape",
+      "stage": "planning",
+      "maxKeep": 2,
+      "candidates": [
+        {
+          "id": "manifesto_machine",
+          "label": "Manifesto machine",
+          "promptHint": "Prioritize a dramatic manifesto-like landing page with concept machinery, layered panels, and expressive interactions."
+        },
+        {
+          "id": "concept_atlas",
+          "label": "Concept atlas",
+          "promptHint": "Prioritize a more navigable atlas of concepts, tensions, notebooks, and explanatory paths while still keeping a strong authored visual direction."
+        }
+      ]
+    }
+  ],
+  "hiddenChecks": [
+    {
+      "id": "philo-package",
+      "title": "package.json exists",
+      "category": "repo",
+      "weight": 1,
+      "required": true,
+      "type": "fileExists",
+      "path": "package.json"
+    },
+    {
+      "id": "philo-readme",
+      "title": "README exists",
+      "category": "docs",
+      "weight": 1,
+      "required": true,
+      "type": "fileExists",
+      "path": "README.md"
+    },
+    {
+      "id": "philo-tsconfig",
+      "title": "TypeScript config exists",
+      "category": "repo",
+      "weight": 1,
+      "required": true,
+      "type": "fileExists",
+      "path": "tsconfig.json"
+    },
+    {
+      "id": "philo-src",
+      "title": "Source tree exists",
+      "category": "repo",
+      "weight": 1,
+      "required": true,
+      "type": "globCount",
+      "pattern": "src/**",
+      "count": 1
+    },
+    {
+      "id": "philo-web-entry",
+      "title": "Web entry exists",
+      "category": "product",
+      "weight": 1.5,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/main.tsx",
+        "src/main.ts",
+        "src/app.tsx",
+        "src/App.tsx"
+      ],
+      "count": 1
+    },
+    {
+      "id": "philo-interactive-module",
+      "title": "Interactive concept surface exists",
+      "category": "product",
+      "weight": 2,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/**/*map*.*",
+        "src/**/*atlas*.*",
+        "src/**/*navigator*.*",
+        "src/**/*notebook*.*",
+        "src/**/*graph*.*",
+        "src/**/*simulator*.*",
+        "src/**/*tension*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "philo-content-doc",
+      "title": "Philosophy outline doc exists",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "docs/**/*philosophy*.*",
+        "docs/**/*concept*.*",
+        "docs/**/*worldview*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "philo-thesis-text",
+      "title": "Repo text reflects the becoming-first thesis",
+      "category": "product",
+      "weight": 2,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "{README.md,docs/**,src/**}",
+      "includes": [
+        "becoming",
+        "being",
+        "limit",
+        "experience"
+      ],
+      "mode": "all"
+    },
+    {
+      "id": "philo-build",
+      "title": "Build path passes",
+      "category": "quality",
+      "weight": 2.5,
+      "required": true,
+      "type": "commandExitZero",
+      "command": "npm run build",
+      "timeoutSeconds": 120,
+      "env": {
+        "NODE_ENV": "test"
+      }
+    }
+  ],
+  "judgeWeights": {
+    "product": 0.3,
+    "quality": 0.2,
+    "docs": 0.15,
+    "repo": 0.1,
+    "ux": 0.15,
+    "content": 0.1
+  },
+  "expectedRoleOutputs": {
+    "pm_tl_intake": [
+      "editorial and product backlog",
+      "program map",
+      "architecture directives"
+    ],
+    "planning": [
+      "site structure",
+      "interaction plan",
+      "content and validation strategy"
+    ],
+    "execution": [
+      "repo changes",
+      "commands run",
+      "unresolved issues"
+    ],
+    "review": [
+      "product critique",
+      "philosophical coherence critique",
+      "repair recommendations"
+    ],
+    "pm_tl_reprioritization": [
+      "updated queue",
+      "promoted opportunities",
+      "next implementation slice"
+    ]
+  },
+  "successThreshold": 84,
+  "productJudge": {
+    "enabled": true,
+    "workerModel": "qwen/qwen3-coder-flash",
+    "hiddenCheckWeight": 0.3,
+    "productQualityWeight": 0.7,
+    "minimumProductQualityScore": 66,
+    "minimumTechnicalQualityScore": 58,
+    "maximumSpecQualityGap": 18,
+    "minimumValidationScore": 65,
+    "rubric": [
+      "Judge whether the website feels like an authored, elaborate philosophical experience rather than a generic essay site with decorative language.",
+      "Reward coherent first-principles synthesis, strong information architecture, memorable interactions, and a visual language that supports process, tension, becoming, and negation.",
+      "Reward sites that balance structured explanation with more fragmentary or feverish exploratory surfaces.",
+      "Reward a controlled amount of schizo-cosmic or Time-Cube-like provocation when it remains intellectually rich and legible.",
+      "Penalize empty pseudo-profundity, philosopher name-dropping without synthesis, random sludge masquerading as depth, or polished UI with no real conceptual machinery."
+    ]
+  }
+}

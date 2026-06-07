@@ -1,0 +1,186 @@
+{
+  "id": "release_orch_stage1_foundation",
+  "title": "Release Orchestration Stage 1: Foundation",
+  "summary": "Establish the clean-room service graph, policy model, local control-plane server, and operator web shell.",
+  "artifactTarget": "Release orchestration webapp/server foundation repo",
+  "publicBriefFile": "benchmarks/release_orch_stage1_foundation/brief.md",
+  "workspaceSeed": "seeds/release_orch_stage1_foundation",
+  "budgets": {
+    "minMinutes": 30,
+    "maxMinutes": 120,
+    "defaultMinutes": 60
+  },
+  "acceptanceCriteria": [
+    "Keep a clean-room release orchestration product shape with a server and operator web shell.",
+    "Model a fictional fleet with service dependencies, environments, and release queue state.",
+    "Introduce impact-analysis and promotion-policy concepts without binding to real providers.",
+    "Leave behind readable docs and passing smoke tests."
+  ],
+  "branchTemplates": [
+    {
+      "id": "foundation_shape",
+      "label": "Foundation shape",
+      "stage": "planning",
+      "maxKeep": 2,
+      "candidates": [
+        {
+          "id": "server_first_shell",
+          "label": "Server-first shell",
+          "promptHint": "Keep the operator web shell thin and push the system model into server/domain modules first."
+        },
+        {
+          "id": "richer_console_seed",
+          "label": "Richer console seed",
+          "promptHint": "Use the same clean-room domain model, but invest slightly more in an operator-facing shell from the first stage."
+        }
+      ]
+    }
+  ],
+  "hiddenChecks": [
+    {
+      "id": "release-foundation-package",
+      "title": "package.json exists",
+      "category": "repo",
+      "weight": 1,
+      "required": true,
+      "type": "fileExists",
+      "path": "package.json"
+    },
+    {
+      "id": "release-foundation-server",
+      "title": "Server app exists",
+      "category": "product",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "src/server/app.js"
+    },
+    {
+      "id": "release-foundation-graph",
+      "title": "Service graph model exists",
+      "category": "domain",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "src/domain/service-graph.js"
+    },
+    {
+      "id": "release-foundation-impact",
+      "title": "Impact analysis module exists",
+      "category": "domain",
+      "weight": 2,
+      "required": true,
+      "type": "fileExists",
+      "path": "src/domain/impact-analysis.js"
+    },
+    {
+      "id": "release-foundation-policy",
+      "title": "Promotion policy model exists",
+      "category": "domain",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "src/domain/promotion-policy.js"
+    },
+    {
+      "id": "release-foundation-fleet",
+      "title": "Simulated fleet exists",
+      "category": "simulation",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "src/sim/fleet.js"
+    },
+    {
+      "id": "release-foundation-web-copy",
+      "title": "Operator web shell references release-control concepts",
+      "category": "ux",
+      "weight": 1.5,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/web/**",
+      "includes": [
+        "approval",
+        "rollback",
+        "verification",
+        "release queue"
+      ],
+      "mode": "any"
+    },
+    {
+      "id": "release-foundation-model-doc",
+      "title": "System model doc exists",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "docs/system-model.md"
+    },
+    {
+      "id": "release-foundation-readme",
+      "title": "README covers development and system model",
+      "category": "docs",
+      "weight": 1,
+      "required": true,
+      "type": "textIncludes",
+      "path": "README.md",
+      "includes": [
+        "## Development",
+        "## System Model"
+      ],
+      "mode": "all"
+    },
+    {
+      "id": "release-foundation-tests",
+      "title": "Smoke tests pass",
+      "category": "quality",
+      "weight": 2,
+      "required": true,
+      "type": "commandExitZero",
+      "command": "npm test",
+      "timeoutSeconds": 60,
+      "env": {
+        "NODE_ENV": "test"
+      }
+    }
+  ],
+  "judgeWeights": {
+    "product": 0.2,
+    "domain": 0.25,
+    "simulation": 0.15,
+    "ux": 0.15,
+    "docs": 0.1,
+    "quality": 0.1,
+    "repo": 0.05
+  },
+  "expectedRoleOutputs": {
+    "pm_tl_intake": [
+      "foundation backlog",
+      "acceptance checklist",
+      "clean-room product risks",
+      "work breakdown"
+    ],
+    "planning": [
+      "foundation plan",
+      "branch recommendation",
+      "test strategy",
+      "work breakdown"
+    ],
+    "execution": [
+      "repo changes",
+      "commands run",
+      "unresolved issues"
+    ],
+    "review": [
+      "architecture critique",
+      "repair recommendations"
+    ],
+    "pm_tl_reprioritization": [
+      "updated foundation queue",
+      "next-step notes",
+      "work breakdown"
+    ]
+  },
+  "successThreshold": 84,
+  "requireBaselineImprovement": false
+}

@@ -1,0 +1,44 @@
+{
+  "name": "@borgesius/johann",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Johann: versioned seeds, generations, and local runner/eval tooling for Johann apps.",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/borgesius/johann.git"
+  },
+  "homepage": "https://github.com/borgesius/johann",
+  "bugs": {
+    "url": "https://github.com/borgesius/johann/issues"
+  },
+  "bin": {
+    "bench": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist .bench/.tmp",
+    "dev": "tsx src/index.ts",
+    "hft:dream:run": "bash ./scripts/run-hft-dream-chain.sh",
+    "hft:dream:watch": "bash ./scripts/watch-hft-dream-chain.sh",
+    "release:control:smoke": "bash ./scripts/run-release-control-smoke.sh",
+    "release:control:run": "bash ./scripts/run-release-control-chain.sh",
+    "release:control:watch": "bash ./scripts/watch-release-control-chain.sh",
+    "self:improve:refresh-seed": "bash ./scripts/refresh-self-improve-seed.sh",
+    "self:improve:run": "bash ./scripts/run-self-improve-harness.sh",
+    "self:improve:watch": "bash ./scripts/watch-self-improve-harness.sh",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "opencode-ai": "^1.16.2",
+    "playwright-core": "^1.60.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}

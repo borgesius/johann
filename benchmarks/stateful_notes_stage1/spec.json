@@ -1,0 +1,187 @@
+{
+  "id": "stateful_notes_stage1",
+  "title": "Stateful Notes Service, Stage 1",
+  "summary": "Lay down a modular notes service that will be extended in later stages.",
+  "artifactTarget": "Extensible notes service foundation",
+  "publicBriefFile": "benchmarks/stateful_notes_stage1/brief.md",
+  "workspaceSeed": "seeds/stateful_notes",
+  "budgets": {
+    "minMinutes": 20,
+    "maxMinutes": 120,
+    "defaultMinutes": 35
+  },
+  "acceptanceCriteria": [
+    "Implement one create-and-list notes workflow.",
+    "Use a conventional src layout with a server entry and a separate storage module.",
+    "Expose a health surface and basic diagnostics.",
+    "Leave behind a root README plus enough tests and docs that another stage can extend it."
+  ],
+  "branchTemplates": [
+    {
+      "id": "notes_architecture",
+      "label": "Notes architecture",
+      "stage": "planning",
+      "maxKeep": 2,
+      "candidates": [
+        {
+          "id": "service_split",
+          "label": "Service split",
+          "promptHint": "Favor a server plus dedicated storage module with thin handlers."
+        },
+        {
+          "id": "flat_app",
+          "label": "Flat app",
+          "promptHint": "Favor a simpler flatter app, but keep the code readable and extendable."
+        }
+      ]
+    }
+  ],
+  "hiddenChecks": [
+    {
+      "id": "stage1-package",
+      "title": "package.json exists",
+      "category": "repo",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "package.json"
+    },
+    {
+      "id": "stage1-server",
+      "title": "Server entry exists",
+      "category": "product",
+      "weight": 2,
+      "required": true,
+      "type": "globCount",
+      "pattern": "src/server.*",
+      "count": 1
+    },
+    {
+      "id": "stage1-store",
+      "title": "Storage module exists",
+      "category": "architecture",
+      "weight": 2,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/*store*.*",
+        "src/*storage*.*",
+        "src/*repo*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage1-logger",
+      "title": "Logger exists",
+      "category": "observability",
+      "weight": 1,
+      "required": true,
+      "type": "globCount",
+      "pattern": "src/*log*.*",
+      "count": 1
+    },
+    {
+      "id": "stage1-health",
+      "title": "Health surface exists",
+      "category": "observability",
+      "weight": 1.5,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/server.*",
+      "includes": [
+        "/health"
+      ],
+      "mode": "all"
+    },
+    {
+      "id": "stage1-notes-route",
+      "title": "Notes workflow exists",
+      "category": "product",
+      "weight": 1.5,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/server.*",
+      "includes": [
+        "/notes"
+      ],
+      "mode": "all"
+    },
+    {
+      "id": "stage1-tests",
+      "title": "Tests exist",
+      "category": "quality",
+      "weight": 1.5,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "test/**",
+        "src/*.test.*",
+        "src/**/*.test.*",
+        "src/*.spec.*",
+        "src/**/*.spec.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "stage1-test-command",
+      "title": "Tests pass",
+      "category": "quality",
+      "weight": 1.5,
+      "required": true,
+      "type": "commandExitZero",
+      "command": "npm test",
+      "timeoutSeconds": 120,
+      "env": {
+        "NODE_ENV": "test"
+      }
+    },
+    {
+      "id": "stage1-readme",
+      "title": "README covers development and architecture",
+      "category": "docs",
+      "weight": 1,
+      "required": true,
+      "type": "textIncludes",
+      "path": "README.md",
+      "includes": [
+        "## Development",
+        "## Architecture"
+      ],
+      "mode": "all"
+    }
+  ],
+  "judgeWeights": {
+    "product": 0.25,
+    "architecture": 0.25,
+    "quality": 0.2,
+    "observability": 0.15,
+    "docs": 0.1,
+    "repo": 0.05
+  },
+  "expectedRoleOutputs": {
+    "pm_tl_intake": [
+      "prioritized backlog",
+      "acceptance checklist",
+      "architecture direction"
+    ],
+    "planning": [
+      "implementation plan",
+      "branch recommendation",
+      "test strategy"
+    ],
+    "execution": [
+      "repo changes",
+      "commands run",
+      "unresolved issues"
+    ],
+    "review": [
+      "review findings",
+      "repair recommendations"
+    ],
+    "pm_tl_reprioritization": [
+      "updated backlog",
+      "handoff notes"
+    ]
+  },
+  "successThreshold": 82
+}

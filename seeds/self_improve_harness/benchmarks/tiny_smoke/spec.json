@@ -1,0 +1,73 @@
+{
+  "id": "tiny_smoke",
+  "title": "Tiny Smoke Calibration",
+  "summary": "A deliberately small benchmark used to validate that a worker can complete the loop end to end.",
+  "artifactTarget": "Tiny repo scaffold",
+  "publicBriefFile": "benchmarks/tiny_smoke/brief.md",
+  "workspaceSeed": "seeds/tiny_smoke",
+  "budgets": {
+    "minMinutes": 5,
+    "maxMinutes": 20,
+    "defaultMinutes": 10
+  },
+  "acceptanceCriteria": [
+    "Create a tiny runnable repository skeleton.",
+    "Add a README with a development section.",
+    "Add one source file under src/ and a package manifest."
+  ],
+  "branchTemplates": [],
+  "hiddenChecks": [
+    {
+      "id": "tiny-package",
+      "title": "package.json exists",
+      "category": "repo",
+      "weight": 1,
+      "required": true,
+      "type": "fileExists",
+      "path": "package.json"
+    },
+    {
+      "id": "tiny-readme",
+      "title": "README has development section",
+      "category": "docs",
+      "weight": 1,
+      "required": true,
+      "type": "textIncludes",
+      "path": "README.md",
+      "includes": [
+        "## Development"
+      ],
+      "mode": "all"
+    },
+    {
+      "id": "tiny-src",
+      "title": "Source file exists",
+      "category": "product",
+      "weight": 1,
+      "required": true,
+      "type": "globCount",
+      "pattern": "src/**",
+      "count": 1
+    }
+  ],
+  "judgeWeights": {
+    "repo": 0.34,
+    "docs": 0.33,
+    "product": 0.33
+  },
+  "expectedRoleOutputs": {
+    "pm_tl_intake": [
+      "tiny backlog"
+    ],
+    "planning": [
+      "implementation plan"
+    ],
+    "execution": [
+      "repo changes"
+    ],
+    "review": [
+      "review findings"
+    ]
+  },
+  "successThreshold": 90
+}

@@ -1,0 +1,150 @@
+{
+  "id": "microsaas_obs",
+  "title": "Micro-SaaS With Observability",
+  "summary": "Build a small software product with one real user flow and enough monitoring and operational shape that it feels maintainable.",
+  "artifactTarget": "Micro-SaaS repo with observability",
+  "publicBriefFile": "benchmarks/microsaas_obs/brief.md",
+  "workspaceSeed": "seeds/microsaas_obs",
+  "budgets": {
+    "minMinutes": 20,
+    "maxMinutes": 120,
+    "defaultMinutes": 60
+  },
+  "acceptanceCriteria": [
+    "Implement one concrete end-to-end workflow.",
+    "Expose a health surface or equivalent operational heartbeat.",
+    "Include logs, metrics, traces, or a documented observability story.",
+    "Leave behind docs that cover development and operations."
+  ],
+  "branchTemplates": [
+    {
+      "id": "observability_strategy",
+      "label": "Observability strategy",
+      "stage": "planning",
+      "maxKeep": 2,
+      "candidates": [
+        {
+          "id": "baked_in_runtime",
+          "label": "Baked into runtime",
+          "promptHint": "Favor observability primitives directly in the app runtime and handlers."
+        },
+        {
+          "id": "docs_first_contract",
+          "label": "Docs-first contract",
+          "promptHint": "Favor a cleaner app core with a strongly documented observability contract and hooks."
+        }
+      ]
+    }
+  ],
+  "hiddenChecks": [
+    {
+      "id": "saas-package",
+      "title": "package.json exists",
+      "category": "repo",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "package.json"
+    },
+    {
+      "id": "saas-server",
+      "title": "Service entry exists",
+      "category": "product",
+      "weight": 2,
+      "required": true,
+      "type": "globCount",
+      "pattern": "src/server.*",
+      "count": 1
+    },
+    {
+      "id": "saas-logger",
+      "title": "Logger exists",
+      "category": "observability",
+      "weight": 1.5,
+      "required": true,
+      "type": "globCount",
+      "pattern": "src/logger.*",
+      "count": 1
+    },
+    {
+      "id": "saas-health",
+      "title": "Health surface exists",
+      "category": "observability",
+      "weight": 1.5,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/server.*",
+      "includes": [
+        "/health"
+      ],
+      "mode": "all"
+    },
+    {
+      "id": "saas-obs-docs",
+      "title": "Observability docs exist",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "docs/observability.md"
+    },
+    {
+      "id": "saas-tests",
+      "title": "Tests exist",
+      "category": "quality",
+      "weight": 1.5,
+      "required": true,
+      "type": "globCount",
+      "pattern": "test/**",
+      "count": 1
+    },
+    {
+      "id": "saas-readme",
+      "title": "README covers dev and ops",
+      "category": "docs",
+      "weight": 1,
+      "required": true,
+      "type": "textIncludes",
+      "path": "README.md",
+      "includes": [
+        "## Development",
+        "## Operations"
+      ],
+      "mode": "all"
+    }
+  ],
+  "judgeWeights": {
+    "product": 0.3,
+    "observability": 0.3,
+    "quality": 0.2,
+    "docs": 0.1,
+    "repo": 0.1
+  },
+  "expectedRoleOutputs": {
+    "pm_tl_intake": [
+      "prioritized backlog",
+      "acceptance checklist",
+      "technical risks"
+    ],
+    "planning": [
+      "implementation plan",
+      "branch recommendation",
+      "test strategy"
+    ],
+    "execution": [
+      "repo changes",
+      "commands run",
+      "unresolved issues"
+    ],
+    "review": [
+      "review findings",
+      "repair recommendations"
+    ],
+    "pm_tl_reprioritization": [
+      "updated backlog",
+      "handoff notes"
+    ]
+  },
+  "successThreshold": 82,
+  "requireBaselineImprovement": false
+}

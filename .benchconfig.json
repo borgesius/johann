@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "runsDir": ".bench/runs",
+  "reportsDir": ".bench/reports",
+  "chainsDir": ".bench/chains",
+  "benchmarksDir": "benchmarks",
+  "workers": {
+    "stub": {
+      "type": "stub"
+    },
+    "qwen-coder-next": {
+      "type": "openrouter",
+      "model": "qwen/qwen3-coder-next",
+      "apiKeyEnv": "OPENROUTER_API_KEY",
+      "baseUrl": "https://openrouter.ai/api/v1/chat/completions",
+      "temperature": 0.2,
+      "maxTokens": 1200,
+      "defaultHeaders": {
+        "X-OpenRouter-Title": "Medium Run Loop Eval Rig"
+      }
+    },
+    "qwen-coder-hybrid": {
+      "type": "openrouter",
+      "model": "qwen/qwen3-coder-next",
+      "fallbackModel": "qwen/qwen3-coder-flash",
+      "phaseModels": {
+        "pm_intake": "qwen/qwen3-coder-flash",
+        "planning": "qwen/qwen3-coder-flash",
+        "review": "qwen/qwen3-coder-flash",
+        "pm_reprioritization": "qwen/qwen3-coder-flash"
+      },
+      "apiKeyEnv": "OPENROUTER_API_KEY",
+      "baseUrl": "https://openrouter.ai/api/v1/chat/completions",
+      "temperature": 0.2,
+      "maxTokens": 1200,
+      "defaultHeaders": {
+        "X-OpenRouter-Title": "Medium Run Loop Eval Rig"
+      }
+    },
+    "qwen-coder-hybrid-opencode": {
+      "type": "opencode",
+      "model": "qwen/qwen3-coder-next",
+      "fallbackModel": "qwen/qwen3-coder-flash",
+      "phaseModels": {
+        "pm_intake": "qwen/qwen3-coder-flash",
+        "planning": "qwen/qwen3-coder-flash",
+        "review": "qwen/qwen3-coder-flash",
+        "pm_reprioritization": "qwen/qwen3-coder-flash"
+      },
+      "opencodePhases": [
+        "execution",
+        "review"
+      ],
+      "opencodeBinary": "opencode",
+      "opencodeSkipPermissions": true,
+      "apiKeyEnv": "OPENROUTER_API_KEY",
+      "baseUrl": "https://openrouter.ai/api/v1/chat/completions",
+      "temperature": 0.2,
+      "maxTokens": 1200,
+      "defaultHeaders": {
+        "X-OpenRouter-Title": "Medium Run Loop Eval Rig"
+      }
+    },
+    "qwen-coder-flash": {
+      "type": "openrouter",
+      "model": "qwen/qwen3-coder-flash",
+      "apiKeyEnv": "OPENROUTER_API_KEY",
+      "baseUrl": "https://openrouter.ai/api/v1/chat/completions",
+      "temperature": 0.2,
+      "maxTokens": 800,
+      "defaultHeaders": {
+        "X-OpenRouter-Title": "Medium Run Loop Eval Rig"
+      }
+    }
+  },
+  "defaults": {
+    "policy": "gated_role_loop",
+    "worker": "stub",
+    "budgetMinutes": 45,
+    "plateauWindow": 2,
+    "plateauThreshold": 1.5
+  }
+}

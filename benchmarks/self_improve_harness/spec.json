@@ -1,0 +1,204 @@
+{
+  "id": "self_improve_harness",
+  "title": "Self-Improve Harness",
+  "summary": "Improve the benchmark harness itself so it can propose, execute, and judge richer self-improvement work over long-running product loops.",
+  "artifactTarget": "Improved local benchmark harness repo",
+  "publicBriefFile": "benchmarks/self_improve_harness/brief.md",
+  "workspaceSeed": "seeds/self_improve_harness",
+  "budgets": {
+    "minMinutes": 45,
+    "maxMinutes": 480,
+    "defaultMinutes": 180
+  },
+  "acceptanceCriteria": [
+    "Improve the harness itself rather than producing only docs or isolated placeholders.",
+    "Add explicit self-improvement or experiment-planning surfaces that can steer future runs.",
+    "Represent larger work with dependency-aware or initiative-aware structure instead of only a flat queue.",
+    "Improve operator visibility into live state, active work, or self-improvement reasoning.",
+    "Leave the repo in a readable, testable state with docs and passing validation."
+  ],
+  "branchTemplates": [
+    {
+      "id": "self_improvement_axis",
+      "label": "Self-improvement axis",
+      "stage": "planning",
+      "maxKeep": 2,
+      "candidates": [
+        {
+          "id": "control_plane_first",
+          "label": "Control-plane first",
+          "promptHint": "Prioritize dependency-aware planning, experiment records, and self-improvement control-plane logic before investing in operator UX."
+        },
+        {
+          "id": "operator_visibility_first",
+          "label": "Operator visibility first",
+          "promptHint": "Prioritize watcher, report, and operator visibility improvements first, but keep them tied to real self-improvement logic."
+        }
+      ]
+    }
+  ],
+  "hiddenChecks": [
+    {
+      "id": "self-package",
+      "title": "package.json exists",
+      "category": "repo",
+      "weight": 1,
+      "required": true,
+      "type": "fileExists",
+      "path": "package.json"
+    },
+    {
+      "id": "self-improve-module",
+      "title": "Self-improvement module exists",
+      "category": "self_improvement",
+      "weight": 2,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/**/*self-improve*.*",
+        "src/**/*self_improve*.*",
+        "src/**/*experiment*.*",
+        "src/**/*improvement*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "self-dependency-module",
+      "title": "Dependency-aware planning module exists",
+      "category": "self_improvement",
+      "weight": 2,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/**/*dependency*.*",
+        "src/**/*graph*.*",
+        "src/**/*initiative*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "self-doc",
+      "title": "Self-improvement docs exist",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "docs/**/*self*improve*.*",
+        "docs/**/*self_improve*.*",
+        "docs/**/*experiments*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "self-readme",
+      "title": "README covers self-improvement workflow",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "textIncludes",
+      "path": "README.md",
+      "includes": [
+        "## Self-Improvement",
+        "## Development"
+      ],
+      "mode": "all"
+    },
+    {
+      "id": "self-watch-surface",
+      "title": "Watcher or report code references experiments or dependency chains",
+      "category": "operator",
+      "weight": 1.5,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/**",
+      "includes": [
+        "experiment",
+        "dependency",
+        "initiative",
+        "self-improvement"
+      ],
+      "mode": "any"
+    },
+    {
+      "id": "self-tests",
+      "title": "Self-improvement tests exist",
+      "category": "quality",
+      "weight": 2,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "test/**/*self*improve*.*",
+        "test/**/*experiment*.*",
+        "test/**/*dependency*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "self-validation",
+      "title": "Test suite passes",
+      "category": "quality",
+      "weight": 2.5,
+      "required": true,
+      "type": "commandExitZero",
+      "command": "npm test",
+      "timeoutSeconds": 120,
+      "env": {
+        "NODE_ENV": "test"
+      }
+    }
+  ],
+  "judgeWeights": {
+    "self_improvement": 0.3,
+    "operator": 0.15,
+    "quality": 0.2,
+    "docs": 0.15,
+    "repo": 0.05,
+    "product": 0.15
+  },
+  "expectedRoleOutputs": {
+    "pm_tl_intake": [
+      "self-improvement backlog",
+      "architecture risks",
+      "program map"
+    ],
+    "planning": [
+      "implementation plan",
+      "branch recommendation",
+      "test strategy",
+      "dependency-aware work breakdown"
+    ],
+    "execution": [
+      "repo changes",
+      "commands run",
+      "unresolved issues"
+    ],
+    "review": [
+      "self-improvement critique",
+      "operator visibility critique",
+      "repair recommendations"
+    ],
+    "pm_tl_reprioritization": [
+      "updated self-improvement queue",
+      "initiatives to keep alive",
+      "next-step notes"
+    ]
+  },
+  "successThreshold": 86,
+  "requireBaselineImprovement": true,
+  "productJudge": {
+    "enabled": true,
+    "workerModel": "qwen/qwen3-coder-flash",
+    "hiddenCheckWeight": 0.35,
+    "productQualityWeight": 0.65,
+    "minimumProductQualityScore": 68,
+    "minimumTechnicalQualityScore": 60,
+    "maximumSpecQualityGap": 16,
+    "minimumValidationScore": 70,
+    "rubric": [
+      "Judge whether the harness feels meaningfully more capable at improving itself, not merely more complex.",
+      "Reward explicit self-improvement loops, dependency-aware work planning, richer operator visibility, and credible experiment or proposal surfaces.",
+      "Penalize placeholder modules, vague architecture documents, or product changes that sound impressive but do not clearly strengthen the harness."
+    ]
+  }
+}

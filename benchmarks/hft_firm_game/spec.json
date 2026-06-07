@@ -1,0 +1,250 @@
+{
+  "id": "hft_firm_game",
+  "title": "HFT Firm Management Sim",
+  "summary": "Build an Electron management game about running a high-frequency trading firm through people, latency, and algorithm-system decisions.",
+  "artifactTarget": "Electron management sim repo",
+  "publicBriefFile": "benchmarks/hft_firm_game/brief.md",
+  "workspaceSeed": "seeds/hft_firm_game",
+  "budgets": {
+    "minMinutes": 30,
+    "maxMinutes": 180,
+    "defaultMinutes": 75
+  },
+  "acceptanceCriteria": [
+    "Ship a coherent Electron shell with main, preload, and renderer entry points.",
+    "Model the firm as a people-and-project management game, not a coding toy.",
+    "Include both a market/latency expansion system and a board/grid-based trading engine system.",
+    "Keep the simulation rich but the onboarding digestible.",
+    "Use simple but effective 90s office / terminal-flavored presentation rather than asset-heavy graphics."
+  ],
+  "branchTemplates": [
+    {
+      "id": "primary_surface",
+      "label": "Primary management surface",
+      "stage": "planning",
+      "maxKeep": 2,
+      "candidates": [
+        {
+          "id": "ops_terminal",
+          "label": "Ops terminal",
+          "promptHint": "Lean into terminal dashboards, operations panels, tables, and menu-heavy interfaces."
+        },
+        {
+          "id": "office_command_center",
+          "label": "Office command center",
+          "promptHint": "Lean into a more spatial office-management shell with panels for staff, markets, and systems."
+        }
+      ]
+    }
+  ],
+  "hiddenChecks": [
+    {
+      "id": "hft-package",
+      "title": "package.json exists",
+      "category": "repo",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "package.json"
+    },
+    {
+      "id": "hft-main",
+      "title": "Main process entry exists",
+      "category": "desktop",
+      "weight": 2,
+      "required": true,
+      "type": "globCount",
+      "pattern": "src/main.*",
+      "count": 1
+    },
+    {
+      "id": "hft-preload",
+      "title": "Preload entry exists",
+      "category": "desktop",
+      "weight": 1,
+      "required": true,
+      "type": "globCount",
+      "pattern": "src/preload.*",
+      "count": 1
+    },
+    {
+      "id": "hft-renderer",
+      "title": "Renderer assets exist",
+      "category": "ux",
+      "weight": 1.5,
+      "required": true,
+      "type": "globCount",
+      "pattern": "src/renderer/**",
+      "count": 1
+    },
+    {
+      "id": "hft-people-system",
+      "title": "People management system exists",
+      "category": "simulation",
+      "weight": 2,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/**/*employee*.*",
+        "src/**/*staff*.*",
+        "src/**/*team*.*",
+        "src/**/*worker*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "hft-market-system",
+      "title": "Latency or market reach system exists",
+      "category": "simulation",
+      "weight": 2,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/**/*latency*.*",
+        "src/**/*market*.*",
+        "src/**/*wire*.*",
+        "src/**/*network*.*",
+        "src/**/*exchange*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "hft-engine-system",
+      "title": "Trading engine or node system exists",
+      "category": "simulation",
+      "weight": 2,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/**/*algo*.*",
+        "src/**/*engine*.*",
+        "src/**/*strategy*.*",
+        "src/**/*node*.*",
+        "src/**/*grid*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "hft-ui-staff",
+      "title": "UI references staff or team management",
+      "category": "ux",
+      "weight": 1,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/renderer/**",
+      "includes": [
+        "staff",
+        "employee",
+        "team"
+      ],
+      "mode": "any"
+    },
+    {
+      "id": "hft-ui-market",
+      "title": "UI references latency, markets, or routing",
+      "category": "ux",
+      "weight": 1,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/renderer/**",
+      "includes": [
+        "latency",
+        "market",
+        "routing",
+        "exchange",
+        "network"
+      ],
+      "mode": "any"
+    },
+    {
+      "id": "hft-ui-engine",
+      "title": "UI references the engine board or algorithm system",
+      "category": "ux",
+      "weight": 1,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/renderer/**",
+      "includes": [
+        "algorithm",
+        "engine",
+        "node",
+        "grid"
+      ],
+      "mode": "any"
+    },
+    {
+      "id": "hft-design-doc",
+      "title": "Game design doc exists",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "docs/game-design.md"
+    },
+    {
+      "id": "hft-tests",
+      "title": "Tests exist",
+      "category": "quality",
+      "weight": 1.5,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "test/**",
+        "src/*.test.*",
+        "src/**/*.test.*",
+        "src/*.spec.*",
+        "src/**/*.spec.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "hft-readme",
+      "title": "README covers development and core systems",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "textIncludes",
+      "path": "README.md",
+      "includes": [
+        "## Development",
+        "## Core Systems"
+      ],
+      "mode": "all"
+    }
+  ],
+  "judgeWeights": {
+    "simulation": 0.35,
+    "desktop": 0.2,
+    "ux": 0.15,
+    "quality": 0.15,
+    "docs": 0.1,
+    "repo": 0.05
+  },
+  "expectedRoleOutputs": {
+    "pm_tl_intake": [
+      "prioritized backlog",
+      "acceptance checklist",
+      "simulation risks"
+    ],
+    "planning": [
+      "implementation plan",
+      "branch recommendation",
+      "test strategy"
+    ],
+    "execution": [
+      "repo changes",
+      "commands run",
+      "unresolved issues"
+    ],
+    "review": [
+      "code and simulation critique",
+      "repair recommendations"
+    ],
+    "pm_tl_reprioritization": [
+      "updated backlog",
+      "next-step notes"
+    ]
+  },
+  "successThreshold": 82,
+  "requireBaselineImprovement": false
+}

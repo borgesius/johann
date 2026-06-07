@@ -1,0 +1,172 @@
+{
+  "id": "release_orch_stage5_incident_actions",
+  "title": "Release Orchestration Stage 5: Incident Actions",
+  "summary": "Add interactive operator actions, incident handling, approvals, and rollback controls to the product.",
+  "artifactTarget": "Release orchestration incident and action surface",
+  "publicBriefFile": "benchmarks/release_orch_stage5_incident_actions/brief.md",
+  "workspaceSeed": "seeds/release_orch_stage5_incident_actions",
+  "budgets": {
+    "minMinutes": 30,
+    "maxMinutes": 120,
+    "defaultMinutes": 75
+  },
+  "acceptanceCriteria": [
+    "Support approval, promotion, and rollback actions through the product surface.",
+    "Model incident state and operator response in the clean-room simulator.",
+    "Expose these actions in both server and operator UI layers.",
+    "Leave behind docs and tests, and keep browser smoke coverage."
+  ],
+  "branchTemplates": [
+    {
+      "id": "incident_surface",
+      "label": "Incident surface",
+      "stage": "planning",
+      "maxKeep": 2,
+      "candidates": [
+        {
+          "id": "guided_runbook",
+          "label": "Guided runbook",
+          "promptHint": "Represent incidents as guided operational playbooks with recommended actions and evidence."
+        },
+        {
+          "id": "command_center",
+          "label": "Command center",
+          "promptHint": "Represent incidents as a dense command surface where operators can approve, promote, pause, and rollback quickly."
+        }
+      ]
+    }
+  ],
+  "hiddenChecks": [
+    {
+      "id": "release-actions-server",
+      "title": "Server action module exists",
+      "category": "product",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "src/server/actions.js"
+    },
+    {
+      "id": "release-actions-server-copy",
+      "title": "Server references approval, promotion, rollback, and incident handling",
+      "category": "product",
+      "weight": 2,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/server/**",
+      "includes": [
+        "approve",
+        "promote",
+        "rollback",
+        "incident"
+      ],
+      "mode": "any"
+    },
+    {
+      "id": "release-actions-ui-copy",
+      "title": "UI references operator actions",
+      "category": "ux",
+      "weight": 2,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/web/**",
+      "includes": [
+        "Approve",
+        "Promote",
+        "Rollback",
+        "Incident"
+      ],
+      "mode": "any"
+    },
+    {
+      "id": "release-actions-doc",
+      "title": "Incident playbook doc exists",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "fileExists",
+      "path": "docs/incident-playbook.md"
+    },
+    {
+      "id": "release-actions-readme",
+      "title": "README covers incident operations",
+      "category": "docs",
+      "weight": 1,
+      "required": true,
+      "type": "textIncludes",
+      "path": "README.md",
+      "includes": [
+        "## Incident Operations"
+      ],
+      "mode": "all"
+    },
+    {
+      "id": "release-actions-browser-smoke",
+      "title": "Operator action surface loads in a browser smoke check",
+      "category": "quality",
+      "weight": 2,
+      "required": true,
+      "type": "appSmoke",
+      "appTarget": "browser",
+      "startCommand": "PORT=4173 npm run start",
+      "url": "http://127.0.0.1:4173",
+      "waitForSelector": "#app",
+      "waitForText": [
+        "Approve",
+        "Rollback"
+      ],
+      "timeoutSeconds": 45,
+      "screenshotName": "incident-actions.png"
+    },
+    {
+      "id": "release-actions-tests",
+      "title": "Tests pass",
+      "category": "quality",
+      "weight": 1.5,
+      "required": true,
+      "type": "commandExitZero",
+      "command": "npm test",
+      "timeoutSeconds": 60,
+      "env": {
+        "NODE_ENV": "test"
+      }
+    }
+  ],
+  "judgeWeights": {
+    "product": 0.25,
+    "ux": 0.25,
+    "quality": 0.2,
+    "docs": 0.15,
+    "repo": 0.15
+  },
+  "expectedRoleOutputs": {
+    "pm_tl_intake": [
+      "incident-ops backlog",
+      "acceptance checklist",
+      "operational risks",
+      "work breakdown"
+    ],
+    "planning": [
+      "incident-ops plan",
+      "branch recommendation",
+      "test strategy",
+      "work breakdown"
+    ],
+    "execution": [
+      "repo changes",
+      "commands run",
+      "unresolved issues"
+    ],
+    "review": [
+      "incident-surface critique",
+      "repair recommendations"
+    ],
+    "pm_tl_reprioritization": [
+      "updated incident-ops queue",
+      "next-step notes",
+      "work breakdown"
+    ]
+  },
+  "successThreshold": 86,
+  "requireBaselineImprovement": false
+}

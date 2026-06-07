@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Release Control Seed</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main id="app">
+      <header class="hero">
+        <p class="eyebrow">Simulated Release Control</p>
+        <h1>Release Queue</h1>
+        <p>
+          A local operator console for dependency-aware promotions, downstream verification,
+          and rollback decisions.
+        </p>
+      </header>
+
+      <section class="panel-grid">
+        <section class="panel">
+          <h2>Service Graph</h2>
+          <ul id="service-graph"></ul>
+        </section>
+        <section class="panel">
+          <h2>Promotion Rules</h2>
+          <div id="promotion-rules"></div>
+        </section>
+        <section class="panel">
+          <h2>Pending Releases</h2>
+          <div id="release-queue"></div>
+        </section>
+      </section>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

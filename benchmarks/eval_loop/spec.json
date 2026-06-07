@@ -1,0 +1,142 @@
+{
+  "id": "eval_loop",
+  "title": "Iterative Repair Loop",
+  "summary": "Start from a flawed repo, diagnose it, improve it, and prove that the score got better without introducing regressions.",
+  "artifactTarget": "Improved repo from flawed seed",
+  "publicBriefFile": "benchmarks/eval_loop/brief.md",
+  "workspaceSeed": "seeds/eval_loop",
+  "budgets": {
+    "minMinutes": 20,
+    "maxMinutes": 90,
+    "defaultMinutes": 30
+  },
+  "acceptanceCriteria": [
+    "Repair the seeded repo without rewriting it into something unrelated.",
+    "Make the hidden tests pass.",
+    "Add or improve basic observability and developer docs.",
+    "Avoid regressions while closing the most important gaps first."
+  ],
+  "branchTemplates": [
+    {
+      "id": "repair_strategy",
+      "label": "Repair strategy",
+      "stage": "planning",
+      "maxKeep": 2,
+      "candidates": [
+        {
+          "id": "minimal_patch",
+          "label": "Minimal patch",
+          "promptHint": "Fix only the most important defects first and preserve the shape of the seed."
+        },
+        {
+          "id": "rebuild_server",
+          "label": "Rebuild server core",
+          "promptHint": "Rewrite the main server module for clarity if the seed is too messy to salvage."
+        }
+      ]
+    }
+  ],
+  "hiddenChecks": [
+    {
+      "id": "eval-package",
+      "title": "package.json exists",
+      "category": "repo",
+      "weight": 1,
+      "required": true,
+      "type": "fileExists",
+      "path": "package.json"
+    },
+    {
+      "id": "eval-health",
+      "title": "Server exposes a health path",
+      "category": "product",
+      "weight": 2,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "src/server.*",
+      "includes": [
+        "/health"
+      ],
+      "mode": "all"
+    },
+    {
+      "id": "eval-logger",
+      "title": "Logger exists",
+      "category": "observability",
+      "weight": 1,
+      "required": true,
+      "type": "fileExists",
+      "path": "src/logger.js"
+    },
+    {
+      "id": "eval-tests",
+      "title": "Hidden tests pass",
+      "category": "quality",
+      "weight": 3,
+      "required": true,
+      "type": "commandExitZero",
+      "command": "npm test",
+      "timeoutSeconds": 60,
+      "env": {
+        "NODE_ENV": "test"
+      }
+    },
+    {
+      "id": "eval-visible-tests",
+      "title": "Test directory exists",
+      "category": "quality",
+      "weight": 1,
+      "required": true,
+      "type": "globCount",
+      "pattern": "test/**",
+      "count": 1
+    },
+    {
+      "id": "eval-readme",
+      "title": "README covers dev and ops",
+      "category": "docs",
+      "weight": 1,
+      "type": "textIncludes",
+      "path": "README.md",
+      "includes": [
+        "## Development",
+        "## Ops"
+      ],
+      "mode": "all"
+    }
+  ],
+  "judgeWeights": {
+    "quality": 0.35,
+    "product": 0.25,
+    "observability": 0.2,
+    "docs": 0.1,
+    "repo": 0.1
+  },
+  "expectedRoleOutputs": {
+    "pm_tl_intake": [
+      "repair backlog",
+      "acceptance checklist",
+      "top risks"
+    ],
+    "planning": [
+      "repair plan",
+      "branch recommendation",
+      "test strategy"
+    ],
+    "execution": [
+      "repo changes",
+      "commands run",
+      "unresolved issues"
+    ],
+    "review": [
+      "repair critique",
+      "remaining risks"
+    ],
+    "pm_tl_reprioritization": [
+      "updated queue",
+      "next-step notes"
+    ]
+  },
+  "successThreshold": 85,
+  "requireBaselineImprovement": true
+}
