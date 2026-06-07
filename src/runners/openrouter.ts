@@ -114,23 +114,34 @@ async function callOpenRouter(
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), options?.timeoutMs ?? 60_000);
-  const response = await fetch(worker.baseUrl ?? "https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      ...(worker.defaultHeaders ?? {}),
-    },
-    body: JSON.stringify({
-      model: requestedModel,
-      messages,
-      temperature: worker.temperature ?? 0.2,
-      max_tokens: options?.maxTokens ?? worker.maxTokens ?? 2200,
+  const timeoutMs = options?.timeoutMs ?? 60_000;
+  let timeoutHandle: NodeJS.Timeout | undefined;
+  const response = await Promise.race([
+    fetch(worker.baseUrl ?? "https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        ...(worker.defaultHeaders ?? {}),
+      },
+      body: JSON.stringify({
+        model: requestedModel,
+        messages,
+        temperature: worker.temperature ?? 0.2,
+        max_tokens: options?.maxTokens ?? worker.maxTokens ?? 2200,
+      }),
+      signal: controller.signal,
     }),
-    signal: controller.signal,
-  }).finally(() => {
-    clearTimeout(timeout);
+    new Promise<never>((_, reject) => {
+      timeoutHandle = setTimeout(() => {
+        controller.abort();
+        reject(new Error(`OpenRouter request timed out after ${timeoutMs}ms.`));
+      }, timeoutMs);
+    }),
+  ]).finally(() => {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
   });
 
   if (!response.ok) {
@@ -1429,6 +1440,45 @@ function hasPassingSmokeEvidence(traces: PhaseTraceStep[]): boolean {
   );
 }
 
+function recentInvalidJsonCount(traces: PhaseTraceStep[]): number {
+  let count = 0;
+  for (let index = traces.length - 1; index >= 0; index -= 1) {
+    const trace = traces[index];
+    if (!trace) {
+      continue;
+    }
+    if (trace.actionType === "invalid_json") {
+      count += 1;
+      continue;
+    }
+    if (trace.actionType === "run_app_smoke" || trace.actionType === "run_command") {
+      break;
+    }
+    if (
+      trace.actionType === "write_file"
+      || trace.actionType === "replace_in_file"
+      || trace.actionType === "run_command"
+      || trace.actionType === "finish"
+    ) {
+      break;
+    }
+  }
+  return count;
+}
+
+function shouldForceRuntimeDebugFinish(
+  context: RunnerPhaseContext,
+  traces: PhaseTraceStep[],
+): boolean {
+  if (context.phase !== "execution") {
+    return false;
+  }
+  if (failedSmokeAttempts(traces) < 1 || hasPassingSmokeEvidence(traces)) {
+    return false;
+  }
+  return recentInvalidJsonCount(traces) >= 2;
+}
+
 function isRepoMutatingCommand(command: string): boolean {
   const normalized = command.trim().toLowerCase();
   return /\b(npm|pnpm|yarn|bun)\s+(install|add|remove|uninstall)\b/.test(normalized)
@@ -2466,6 +2516,12 @@ export class OpenRouterRunner implements RunnerAdapter {
             : ""}`,
         });
         recoverableErrorCount += 1;
+        if (shouldForceRuntimeDebugFinish(context, traces)) {
+          return forceStructuredFinish(
+            "runtime_debug_stall",
+            `Recovered ${context.phase} after a smoke/debug branch stalled on repeated invalid model output.`,
+          );
+        }
         if (recoverableErrorCount >= recoverableErrorLimit(context)) {
           return forceStructuredFinish(
             "recoverable_error_limit",

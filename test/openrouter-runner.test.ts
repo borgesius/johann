@@ -1415,4 +1415,55 @@ describe("OpenRouterRunner limit recovery", () => {
       || result.summary.includes("Recovered execution after hitting the phase step limit."),
     ).toBe(true);
   });
+
+  it("forces a structured finish when smoke debugging devolves into repeated invalid JSON", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "openrouter-runner-runtime-stall-"));
+    tempRoots.push(root);
+    const repoDir = path.join(root, "repo");
+    await fs.mkdir(path.join(repoDir, "src"), { recursive: true });
+    await fs.writeFile(
+      path.join(repoDir, "package.json"),
+      JSON.stringify({
+        name: "becoming-site",
+        scripts: {
+          dev: "vite",
+          build: "vite build",
+        },
+      }, null, 2) + "\n",
+      "utf8",
+    );
+    await fs.writeFile(path.join(repoDir, "src/main.tsx"), "console.log('boot');\n", "utf8");
+
+    vi.mocked(runBrowserSmoke).mockResolvedValueOnce({
+      passed: false,
+      summary: "Browser smoke failed for http://127.0.0.1:3000",
+      details: "Last browser error: connection refused",
+    });
+
+    let callCount = 0;
+    const fetchMock = vi.fn(async () => {
+      callCount += 1;
+      if (callCount === 1) {
+        return mockCompletion({
+          type: "run_app_smoke",
+          url: "http://127.0.0.1:3000",
+          startCommand: "PORT=3000 npm run dev",
+          waitForSelector: "#root",
+          reasoning: "Check whether the live app comes up cleanly.",
+        });
+      }
+      return mockCompletion("Let me explain what I want to do next before I format it.");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const runner = new OpenRouterRunner(worker);
+    const result = await runner.runPhase(
+      makeContext(repoDir, "execution", { benchmark: makeWebBenchmark() }),
+    );
+
+    expect(result.summary).toContain("smoke/debug branch stalled");
+    expect(result.metadata?.forcedFinish).toBe(true);
+    expect(result.metadata?.recoveryMode).toBe("runtime_debug_stall");
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3);
+  });
 });

@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
 import path from "node:path";
@@ -63,7 +63,21 @@ export function normalizeBrowserStartCommand(command: string, targetUrl: string)
     return `${withoutNetworkEnv} -- --host ${host} --port ${port}`.trim();
   }
 
+  if (/\b(?:npm|pnpm|yarn)\s+run\s+dev\b/.test(withoutNetworkEnv)) {
+    if (hasHost && hasPort) {
+      return trimmed;
+    }
+    return `${withoutNetworkEnv} -- --host ${host} --port ${port}`.trim();
+  }
+
   if (/\bvite\s+preview\b/.test(withoutNetworkEnv)) {
+    if (hasHost && hasPort) {
+      return trimmed;
+    }
+    return `${withoutNetworkEnv} --host ${host} --port ${port}`.trim();
+  }
+
+  if (/\bvite\b.*\bdev\b|\bvite\s*$/.test(withoutNetworkEnv)) {
     if (hasHost && hasPort) {
       return trimmed;
     }
@@ -148,10 +162,29 @@ function stopBackgroundProcess(processInfo?: BackgroundProcess): void {
   }
 
   try {
+    spawnSync("pkill", ["-TERM", "-P", String(processInfo.pid)], { stdio: "ignore" });
+  } catch {
+    // Best-effort descendant cleanup only.
+  }
+  try {
     process.kill(-processInfo.pid, "SIGTERM");
   } catch {
     try {
       process.kill(processInfo.pid, "SIGTERM");
+    } catch {
+      // Ignore cleanup failures.
+    }
+  }
+  try {
+    spawnSync("pkill", ["-KILL", "-P", String(processInfo.pid)], { stdio: "ignore" });
+  } catch {
+    // Best-effort descendant cleanup only.
+  }
+  try {
+    process.kill(-processInfo.pid, "SIGKILL");
+  } catch {
+    try {
+      process.kill(processInfo.pid, "SIGKILL");
     } catch {
       // Ignore cleanup failures.
     }

@@ -1,6 +1,6 @@
 {
   "name": "@borgesius/johann",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "private": true,
   "description": "A local workbench for generating software from seed briefs, evaluating the results, and iterating on the system itself.",
   "type": "module",

@@ -16,4 +16,10 @@ describe("normalizeBrowserStartCommand", () => {
       ),
     ).toBe("npm run preview -- --host 127.0.0.1 --port 4173");
   });
+
+  it("normalizes brittle Vite dev commands to explicit host and port flags", () => {
+    expect(
+      normalizeBrowserStartCommand("PORT=3000 npm run dev", "http://127.0.0.1:3000"),
+    ).toBe("npm run dev -- --host 127.0.0.1 --port 3000");
+  });
 });
