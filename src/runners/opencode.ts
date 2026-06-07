@@ -47,6 +47,8 @@ const FILE_REPAIR_THRESHOLD = 4;
 const FILE_TRUE_THRASH_THRESHOLD = 6;
 const COMMAND_VALIDATION_LOOP_THRESHOLD = 2;
 const COMMAND_TRUE_THRASH_THRESHOLD = 4;
+const EDIT_MISMATCH_REPAIR_THRESHOLD = 2;
+const EDIT_MISMATCH_TRUE_THRASH_THRESHOLD = 4;
 const WRITE_ACTIONS = new Set(["write", "edit", "multiedit"]);
 
 function shouldUseOpenCodePhase(worker: WorkerConfig, phase: RunnerPhaseContext["phase"]): boolean {
@@ -210,6 +212,8 @@ function summarizeToolEvent(event: OpenCodeEvent, step: number): {
       actionType: tool,
       action: {
         ...input,
+        ...(status !== "completed" ? { toolStatus: status } : {}),
+        ...(typeof state?.error === "string" ? { toolError: state.error } : {}),
         ...(typeof metadata.exit === "number" ? { exitCode: metadata.exit } : {}),
       },
       observationSummary: truncate(summary, 220),
@@ -233,6 +237,22 @@ function normalizeCommand(command: string): string {
   return command.trim().replace(/\s+/g, " ");
 }
 
+function normalizeIssueText(issue: string): string {
+  return issue
+    .replace(/\s+/g, " ")
+    .replace(/["'`]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function isExactMatchEditFailure(issue: string): boolean {
+  const normalized = normalizeIssueText(issue);
+  return (
+    normalized.includes("could not find oldstring in the file")
+    || normalized.includes("no changes to apply")
+  );
+}
+
 function looksLikeRuntimeCommand(command: string): boolean {
   return /(?:npm|pnpm|yarn)\s+run\s+(?:dev|preview|start)\b|vite\b|curl\b|localhost|127\.0\.0\.1/i.test(
     command,
@@ -249,10 +269,27 @@ function detectLoopState(
   rootDir?: string,
 ): LoopAnalysis {
   const fileWrites = new Map<string, number>();
+  const failedEditFingerprints = new Map<string, { filePath: string; issue: string; count: number }>();
   const commandFingerprints = new Map<string, { command: string; count: number; exitCode?: number }>();
   const touchedFiles = new Set<string>();
 
   for (const trace of traces) {
+    if (trace.actionType === "edit" || trace.actionType === "multiedit") {
+      const filePath = extractTraceFilePath(trace);
+      const toolError =
+        typeof trace.action.toolError === "string" ? trace.action.toolError : undefined;
+      if (filePath && toolError && isExactMatchEditFailure(toolError)) {
+        const fingerprint = `${filePath}::${normalizeIssueText(toolError)}`;
+        const current = failedEditFingerprints.get(fingerprint) ?? {
+          filePath,
+          issue: toolError,
+          count: 0,
+        };
+        current.count += 1;
+        failedEditFingerprints.set(fingerprint, current);
+      }
+    }
+
     if (!WRITE_ACTIONS.has(trace.actionType)) {
       if (trace.actionType === "bash" && typeof trace.action.command === "string") {
         const command = normalizeCommand(trace.action.command);
@@ -280,6 +317,8 @@ function detectLoopState(
 
   const uniqueFiles = [...touchedFiles];
   const maxWrite = [...fileWrites.values()].sort((left, right) => right - left)[0] ?? 0;
+  const repeatedEditMismatch = [...failedEditFingerprints.values()]
+    .sort((left, right) => right.count - left.count)[0];
   const repeatedFailingCommand = [...commandFingerprints.values()]
     .filter((entry) => entry.exitCode !== undefined && entry.exitCode !== 0)
     .sort((left, right) => right.count - left.count)[0];
@@ -289,6 +328,21 @@ function detectLoopState(
       && /\b(?:npm|pnpm|yarn)\s+run\s+(?:test|build|lint|typecheck|dev|preview|start)\b|curl\b/i.test(entry.command),
     )
     .sort((left, right) => right.count - left.count)[0];
+
+  if (repeatedEditMismatch && repeatedEditMismatch.count >= EDIT_MISMATCH_TRUE_THRASH_THRESHOLD) {
+    const displayPath =
+      rootDir
+      && path.isAbsolute(repeatedEditMismatch.filePath)
+      && repeatedEditMismatch.filePath.startsWith(rootDir)
+        ? path.relative(rootDir, repeatedEditMismatch.filePath)
+        : repeatedEditMismatch.filePath;
+    return {
+      classification: "true_thrash",
+      signals: [
+        `True thrash detected: repeated exact-match edit failures on ${displayPath} (${repeatedEditMismatch.count} attempts). Switch away from fragile string patches and re-read or rewrite the surface cleanly.`,
+      ],
+    };
+  }
 
   if (
     repeatedFailingCommand
@@ -330,6 +384,13 @@ function detectLoopState(
         repeatedValidationishCommand.exitCode !== undefined && repeatedValidationishCommand.exitCode !== 0
           ? "validation_loop"
           : "focused_build",
+      signals: [],
+    };
+  }
+
+  if (repeatedEditMismatch && repeatedEditMismatch.count >= EDIT_MISMATCH_REPAIR_THRESHOLD) {
+    return {
+      classification: "repair_loop",
       signals: [],
     };
   }

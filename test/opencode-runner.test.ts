@@ -373,4 +373,73 @@ describe("OpenCodeRunner", () => {
     expect((result.metadata as Record<string, unknown>).loopClassification).toBe("true_thrash");
     expect((result.metadata as Record<string, unknown>).thrashSignals).toBeDefined();
   });
+
+  it("escalates repeated exact-match edit failures on the same file into a repair-loop thrash signal", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "opencode-runner-edit-mismatch-"));
+    tempRoots.push(root);
+    const repoDir = path.join(root, "repo");
+    await fs.mkdir(repoDir, { recursive: true });
+
+    const delegate: RunnerAdapter = {
+      runPhase: vi.fn(async () => ({
+        summary: "delegate",
+        output: { summary: "delegate" },
+      })),
+    };
+
+    const invoke = vi.fn(async ({ onEvent }: { onEvent?: (event: Record<string, unknown>) => void }) => {
+      const targetFile = path.join(repoDir, "src", "shared", "model.ts");
+      const events = [
+        { type: "step_start", sessionID: "ses_edit_mismatch" },
+        ...Array.from({ length: 4 }).map(() => ({
+          type: "tool_use",
+          sessionID: "ses_edit_mismatch",
+          part: {
+            tool: "edit",
+            state: {
+              status: "error",
+              error:
+                "Could not find oldString in the file. It must match exactly, including whitespace, indentation, and line endings.",
+              input: {
+                filePath: targetFile,
+                oldString: "old fragment text",
+                newString: "new fragment text",
+              },
+              metadata: { filepath: targetFile },
+              title: "src/shared/model.ts",
+            },
+          },
+        })),
+        {
+          type: "text",
+          sessionID: "ses_edit_mismatch",
+          part: {
+            text: JSON.stringify({
+              summary: "Execution kept attempting brittle exact-match edits.",
+            }),
+          },
+        },
+      ];
+      for (const event of events) {
+        onEvent?.(event);
+      }
+      return {
+        exitCode: 0,
+        stdout: "",
+        stderr: "",
+        events,
+        sessionId: "ses_edit_mismatch",
+      };
+    });
+
+    const runner = new OpenCodeRunner(worker, delegate, invoke as never);
+    const result = await runner.runPhase(makeContext(repoDir, "execution"));
+
+    expect(
+      result.output.unresolvedIssues?.some((issue) =>
+        issue.includes("True thrash detected: repeated exact-match edit failures on src/shared/model.ts"),
+      ),
+    ).toBe(true);
+    expect((result.metadata as Record<string, unknown>).loopClassification).toBe("true_thrash");
+  });
 });
