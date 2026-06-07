@@ -1,7 +1,11 @@
 import type {
   JudgeCheckResult,
   JudgeResult,
+  MetaReview,
+  MetaReviewSatisfaction,
+  MetaReviewTrajectory,
   OpportunityItem,
+  PhaseRecord,
   ProductJudgeConfig,
   ProductJudgeProfile,
   ProductQualityReview,
@@ -29,7 +33,15 @@ type EffectiveProductJudgeConfig = {
   minimumTechnicalQualityScore?: number;
   maximumSpecQualityGap?: number;
   minimumValidationScore?: number;
-  profile: ProductJudgeProfile;
+  artifactKind: string;
+  domainTags: string[];
+  legacyProfile: ProductJudgeProfile;
+};
+
+export type ProductJudgeContext = {
+  cycleNumber?: number;
+  recentPhases?: PhaseRecord[];
+  scoreHistory?: number[];
 };
 
 type OpenRouterMessage = {
@@ -74,7 +86,9 @@ const DEFAULT_PRODUCT_JUDGE: EffectiveProductJudgeConfig = {
   maxTokens: 1800,
   hiddenCheckWeight: 0.6,
   productQualityWeight: 0.4,
-  profile: {
+  artifactKind: "application",
+  domainTags: [],
+  legacyProfile: {
     summary:
       "Judge whether the repo feels like a serious final product candidate rather than a benchmark-shaped shell.",
     priorities: [
@@ -103,6 +117,13 @@ function normalizeProfileStrings(value: string[] | undefined): string[] | undefi
   }
   const normalized = value.map((item) => item.trim()).filter(Boolean);
   return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeDomainTags(value: string[] | undefined): string[] {
+  return (value ?? [])
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 8);
 }
 
 function profileFromLegacyRubric(rubric: string[] | undefined): ProductJudgeProfile | undefined {
@@ -171,8 +192,13 @@ export function resolveProductJudgeConfig(
     ...(configured?.minimumValidationScore !== undefined
       ? { minimumValidationScore: configured.minimumValidationScore }
       : {}),
-    profile: mergeJudgeProfile(
-      DEFAULT_PRODUCT_JUDGE.profile,
+    artifactKind:
+      configured?.artifactKind?.trim()
+      || benchmark.artifactTarget.trim()
+      || DEFAULT_PRODUCT_JUDGE.artifactKind,
+    domainTags: normalizeDomainTags(configured?.domainTags),
+    legacyProfile: mergeJudgeProfile(
+      DEFAULT_PRODUCT_JUDGE.legacyProfile,
       configured?.profile,
       configured?.rubric,
     ),
@@ -228,6 +254,38 @@ function normalizeAxes(value: unknown): Record<string, number> {
       .filter(([, score]) => typeof score === "number" && Number.isFinite(score))
       .map(([label, score]) => [label, clampScore(score, 0)]),
   );
+}
+
+function normalizeTrajectory(
+  value: unknown,
+  fallback: MetaReviewTrajectory,
+): MetaReviewTrajectory {
+  switch (value) {
+    case "improving":
+    case "plateauing":
+    case "regressing":
+    case "thrashing":
+    case "breadth_without_depth":
+      return value;
+    default:
+      return fallback;
+  }
+}
+
+function normalizeSatisfaction(
+  value: unknown,
+  fallback: MetaReviewSatisfaction,
+): MetaReviewSatisfaction {
+  switch (value) {
+    case "clearing_floors":
+    case "promising":
+    case "strong":
+    case "excellent":
+    case "uncertain":
+      return value;
+    default:
+      return fallback;
+  }
 }
 
 function normalizeOpportunity(
@@ -342,10 +400,10 @@ function summarizeFailedChecks(failedChecks: JudgeCheckResult[]): string {
 }
 
 function summarizePreviousProduct(previousJudge?: JudgeResult): string {
-  if (!previousJudge?.productReview) {
+  const review = previousJudge?.metaReview ?? previousJudge?.productReview;
+  if (!review) {
     return "- none";
   }
-  const review = previousJudge.productReview;
   return [
     `- score: ${review.overallScore.toFixed(1)}`,
     `- summary: ${review.summary}`,
@@ -353,8 +411,48 @@ function summarizePreviousProduct(previousJudge?: JudgeResult): string {
     review.recommendations.length > 0
       ? `- recommendations: ${review.recommendations.slice(0, 4).join("; ")}`
       : undefined,
+    review.nextStepThesis ? `- next-step thesis: ${review.nextStepThesis}` : undefined,
+    review.trajectory ? `- trajectory: ${review.trajectory}` : undefined,
+    review.satisfaction ? `- satisfaction: ${review.satisfaction}` : undefined,
   ]
     .filter(Boolean)
+    .join("\n");
+}
+
+function summarizeRecentPhases(recentPhases: PhaseRecord[] | undefined): string {
+  if (!recentPhases || recentPhases.length === 0) {
+    return "- none";
+  }
+  return recentPhases
+    .slice(-5)
+    .map((phase) => {
+      const issues = [
+        ...(phase.output.unresolvedIssues ?? []),
+        ...(phase.output.risks ?? []),
+      ].slice(0, 2);
+      const filesTouched = (phase.output.filesTouched ?? []).slice(0, 4);
+      const commandsRun = (phase.output.commandsRun ?? []).slice(0, 2);
+      return [
+        `- ${phase.phase}: ${phase.summary}`,
+        filesTouched.length > 0 ? `  files: ${filesTouched.join(", ")}` : undefined,
+        commandsRun.length > 0 ? `  commands: ${commandsRun.join(" | ")}` : undefined,
+        issues.length > 0 ? `  issues: ${issues.join(" ; ")}` : undefined,
+      ]
+        .filter(Boolean)
+        .join("\n");
+    })
+    .join("\n");
+}
+
+function summarizeRecentActions(recentPhases: PhaseRecord[] | undefined): string {
+  const traces = (recentPhases ?? [])
+    .flatMap((phase) => phase.traces ?? [])
+    .slice(-10);
+  if (traces.length === 0) {
+    return "- none";
+  }
+  return traces
+    .map((trace) => `- ${trace.step}. ${trace.actionType}: ${truncate(trace.observationSummary, 180)}`)
     .join("\n");
 }
 
@@ -666,6 +764,155 @@ function dedupeStrings(values: string[]): string[] {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
 
+function inferTrajectory(
+  review: {
+    overallScore: number;
+    axes: Record<string, number>;
+  },
+  signals: RepoSignals,
+  validationResults: ValidationResult[],
+  previousJudge?: JudgeResult,
+  context?: ProductJudgeContext,
+): MetaReviewTrajectory {
+  const priorReview = previousJudge?.metaReview ?? previousJudge?.productReview;
+  const previousOverall =
+    priorReview?.overallScore
+    ?? previousJudge?.productQualityScore
+    ?? previousJudge?.totalScore;
+  const delta = previousOverall !== undefined ? review.overallScore - previousOverall : undefined;
+  const recentIssues = (context?.recentPhases ?? []).flatMap((phase) => [
+    ...(phase.output.unresolvedIssues ?? []),
+    ...(phase.output.risks ?? []),
+  ]);
+  const repeatedThrashSignal = recentIssues.some((issue) =>
+    /true thrash|thrash loop|repeated same failing fingerprint|repeated smoke failure/i.test(issue),
+  );
+  if (repeatedThrashSignal) {
+    return "thrashing";
+  }
+  if (
+    signals.surfaceModuleFiles >= 6
+    && signals.sharedSystemFiles <= 1
+    && (review.axes.product_depth ?? 100) < 78
+  ) {
+    return "breadth_without_depth";
+  }
+  if (typeof delta === "number" && delta <= -4) {
+    return "regressing";
+  }
+  if (
+    typeof delta === "number"
+    && delta >= 4
+    && validationResults.filter((result) => !result.passed).length
+      <= (previousJudge?.validationResults?.filter((result) => !result.passed).length ?? Number.MAX_SAFE_INTEGER)
+  ) {
+    return "improving";
+  }
+  const scoreHistory = context?.scoreHistory ?? [];
+  if (scoreHistory.length >= 2) {
+    const last = scoreHistory[scoreHistory.length - 1] ?? review.overallScore;
+    const previous = scoreHistory[scoreHistory.length - 2] ?? last;
+    if (Math.abs(last - previous) <= 2) {
+      return "plateauing";
+    }
+  }
+  if (typeof delta === "number" && delta > 0) {
+    return "improving";
+  }
+  return previousOverall === undefined ? "improving" : "plateauing";
+}
+
+function inferSatisfaction(
+  review: {
+    overallScore: number;
+    axes: Record<string, number>;
+  },
+  hiddenCheckScore: number,
+  validationResults: ValidationResult[],
+  trajectory: MetaReviewTrajectory,
+): MetaReviewSatisfaction {
+  const failedValidationCount = validationResults.filter((result) => !result.passed).length;
+  const productDepth = review.axes.product_depth ?? review.overallScore;
+  const technicalQuality = review.axes.technical_quality ?? review.overallScore;
+  const hiddenGap = hiddenCheckScore - review.overallScore;
+
+  if (
+    failedValidationCount > 0
+    || hiddenGap >= 14
+    || productDepth < 62
+    || trajectory === "breadth_without_depth"
+    || trajectory === "thrashing"
+  ) {
+    return "clearing_floors";
+  }
+  if (
+    review.overallScore >= 90
+    && productDepth >= 84
+    && technicalQuality >= 84
+    && trajectory !== "regressing"
+  ) {
+    return "excellent";
+  }
+  if (
+    review.overallScore >= 80
+    && productDepth >= 72
+    && technicalQuality >= 72
+    && trajectory !== "regressing"
+  ) {
+    return "strong";
+  }
+  if (review.overallScore >= 68) {
+    return "promising";
+  }
+  return "uncertain";
+}
+
+function applyMetaCompletionPressure(
+  review: ProductQualityReview,
+  hiddenCheckScore: number,
+  validationResults: ValidationResult[],
+  signals: RepoSignals,
+  previousJudge?: JudgeResult,
+  context?: ProductJudgeContext,
+): MetaReview {
+  const trajectory = inferTrajectory(review, signals, validationResults, previousJudge, context);
+  const satisfaction = inferSatisfaction(review, hiddenCheckScore, validationResults, trajectory);
+  const improvementHypotheses = dedupeStrings([
+    ...(review.improvementHypotheses ?? []),
+    ...(trajectory === "breadth_without_depth"
+      ? ["Collapse the next cycle into one deeper shared system rather than adding another surface."]
+      : []),
+    ...(trajectory === "plateauing"
+      ? ["Take a bigger swing on the central loop or shared system instead of another incremental polish pass."]
+      : []),
+    ...(trajectory === "thrashing"
+      ? ["Change the tactic entirely: identify the failing fingerprint and target the likeliest causal files before rerunning validation."]
+      : []),
+    ...(validationResults.some((result) => !result.passed)
+      ? ["Close failing validations before broadening the product further."]
+      : []),
+  ]).slice(0, 6);
+  const nextStepThesis =
+    review.nextStepThesis
+    ?? (trajectory === "breadth_without_depth"
+      ? "Deepen the shared system spine so multiple surfaces depend on one real engine, model, or state layer."
+      : trajectory === "thrashing"
+        ? "Break the failing loop and pivot to a more decisive repair move before spending more budget on the same surface."
+        : validationResults.some((result) => !result.passed)
+          ? "Close runtime and validation issues before adding more product breadth."
+          : satisfaction === "clearing_floors"
+            ? "Turn the current scaffold into a more convincing product by deepening one central loop with real consequences."
+            : "Keep compounding depth around the strongest shared system, not around more disconnected features.");
+
+  return {
+    ...review,
+    nextStepThesis,
+    improvementHypotheses,
+    satisfaction,
+    trajectory,
+  };
+}
+
 function buildHeuristicFallbackReview(
   hiddenCheckScore: number,
   failedChecks: JudgeCheckResult[],
@@ -859,6 +1106,23 @@ function buildHeuristicFallbackReview(
         ? recommendations
         : ["Deepen the core system and interaction loop before treating this as a finished product."],
     opportunities,
+    nextStepThesis:
+      signals.runtimeValidationFailed || failedValidationCount > 0
+        ? "Close runtime and validation issues before broadening the product."
+        : signals.surfaceModuleFiles >= 6 && signals.logicModuleFiles <= 3
+          ? "Consolidate the product around a shared system spine instead of another disconnected surface."
+          : "Deepen one central loop until the product feels substantial rather than merely present.",
+    improvementHypotheses: dedupeStrings([
+      ...(signals.runtimeValidationFailed || failedValidationCount > 0
+        ? ["The next iteration should spend more budget on runtime closure and less on adding content."]
+        : []),
+      ...(signals.surfaceModuleFiles >= 6 && signals.logicModuleFiles <= 3
+        ? ["The product needs one stronger shared engine/model rather than more UI islands."]
+        : []),
+      ...(signals.testFiles === 0 && signals.coreImplementationFiles >= 4
+        ? ["A small behavior test suite around the core loop would improve confidence and future iteration quality."]
+        : []),
+    ]),
     calibration: {
       evidenceScore: clampScore(weightedAverage([
         [hiddenCheckScore, 0.35],
@@ -953,11 +1217,13 @@ function buildPrompt(
   validationResults: ValidationResult[],
   validationScore: number | undefined,
   previousJudge?: JudgeResult,
+  context?: ProductJudgeContext,
   config?: EffectiveProductJudgeConfig,
 ): OpenRouterMessage[] {
   const previewBlock = Object.entries(previews)
     .map(([file, content]) => `### ${file}\n\`\`\`\n${content}\n\`\`\``)
     .join("\n\n");
+  const domainTags = config?.domainTags.length ? config.domainTags.join(", ") : "none";
 
   return [
     {
@@ -965,13 +1231,7 @@ function buildPrompt(
       content: `You are a product-quality judge for long-running coding tasks. Respond with exactly one JSON object and no markdown.
 
 Focus on whether the repo is becoming a genuinely strong, well-engineered final product, not whether it merely created the right files.
-
-Judge profile:
-- Summary: ${config?.profile.summary ?? DEFAULT_PRODUCT_JUDGE.profile.summary}
-${(config?.profile.priorities ?? []).length > 0 ? `- Priorities:\n${(config?.profile.priorities ?? []).map((item) => `  - ${item}`).join("\n")}` : ""}
-${(config?.profile.reward ?? []).length > 0 ? `- Reward:\n${(config?.profile.reward ?? []).map((item) => `  - ${item}`).join("\n")}` : ""}
-${(config?.profile.penalize ?? []).length > 0 ? `- Penalize:\n${(config?.profile.penalize ?? []).map((item) => `  - ${item}`).join("\n")}` : ""}
-${(config?.profile.opportunities ?? []).length > 0 ? `- Opportunity bias:\n${(config?.profile.opportunities ?? []).map((item) => `  - ${item}`).join("\n")}` : ""}
+Treat hidden checks as a structural floor. Do not let benchmark-authored taste dominate your judgment.
 
 Return JSON with this shape:
 {
@@ -987,6 +1247,10 @@ Return JSON with this shape:
   },
   "findings": ["..."],
   "recommendations": ["..."],
+  "nextStepThesis": "one concrete thesis for what the next cycle should do",
+  "improvementHypotheses": ["..."],
+  "satisfaction": "clearing_floors|promising|strong|excellent|uncertain",
+  "trajectory": "improving|plateauing|regressing|thrashing|breadth_without_depth",
   "opportunities": [
     {
       "id": "short-stable-id",
@@ -1001,14 +1265,15 @@ Return JSON with this shape:
 }
 
 Rules:
-- Balance brief fidelity with technical quality. A repo that technically covers the brief but is brittle, shallow, or poorly validated should still score low.
+- Balance brief fidelity with technical quality. A repo that technically covers the brief but is brittle, shallow, poorly validated, or merely demo-shaped should still score low.
 - Do not restate checklist failures unless they materially affect the final product.
 - If the repo is mostly scaffold, score it low even if the structure is neat.
 - Do not confuse many panels, tools, modes, or feature islands with a deep product. A handful of loosely connected subsurfaces should score lower than one or two genuinely meaty loops.
 - Penalize overgrown orchestration shells where a single entrypoint coordinates many features without enough deeper systems behind them.
-- Use validation results, repo previews, and architectural coherence to judge whether this could become a strong final product without rework.
+- Use validation results, repo previews, recent phase history, and architectural coherence to judge whether this could become a strong final product without rework.
+- Pay special attention to trajectory: decide whether the run is still improving, merely circling, or adding breadth without enough depth.
 - Prefer opportunities that would deepen the product, improve technical integrity, or make the result feel more complete and intentional.
-- Keep findings and recommendations concrete, blunt, and useful.`,
+- Keep findings, recommendations, and the next-step thesis concrete, blunt, and useful.`,
     },
     {
       role: "user",
@@ -1017,6 +1282,8 @@ Rules:
 - title: ${benchmark.title}
 - summary: ${benchmark.summary}
 - artifact target: ${benchmark.artifactTarget}
+- baseline artifact kind: ${config?.artifactKind ?? benchmark.artifactTarget}
+- domain tags: ${domainTags}
 
 Public brief:
 ${benchmark.publicBrief}
@@ -1042,6 +1309,15 @@ ${summarizeRepoSignals(signals)}
 Previous product review:
 ${summarizePreviousProduct(previousJudge)}
 
+Recent phase history:
+${summarizeRecentPhases(context?.recentPhases)}
+
+Recent action trace:
+${summarizeRecentActions(context?.recentPhases)}
+
+Recent score history:
+${context?.scoreHistory?.length ? context.scoreHistory.map((score) => score.toFixed(1)).join(", ") : "- none"}
+
 Repo tree snapshot (${repoTree.length} entries):
 ${repoTree.length > 0 ? repoTree.slice(0, 180).map((item) => `- ${item}`).join("\n") : "- repo is empty"}
 
@@ -1061,7 +1337,8 @@ export async function evaluateProductQuality(
   validationResults: ValidationResult[],
   validationScore: number | undefined,
   previousJudge?: JudgeResult,
-): Promise<ProductQualityReview | undefined> {
+  context?: ProductJudgeContext,
+): Promise<MetaReview | undefined> {
   const config = resolveProductJudgeConfig(benchmark);
   if (!config) {
     return undefined;
@@ -1088,12 +1365,14 @@ export async function evaluateProductQuality(
         validationResults,
         validationScore,
         previousJudge,
+        context,
         config,
       ),
     );
   } catch (error) {
     const reason = error instanceof Error ? error.message : "unknown model-judge error";
-    return applyRepoSignalCalibration(
+    return applyMetaCompletionPressure(
+      applyRepoSignalCalibration(
       buildHeuristicFallbackReview(
         hiddenCheckScore,
         failedChecks,
@@ -1103,12 +1382,18 @@ export async function evaluateProductQuality(
         reason,
       ),
       signals,
+      ),
+      hiddenCheckScore,
+      validationResults,
+      signals,
+      previousJudge,
+      context,
     );
   }
 
   const rawJson = extractJsonObject(response.content);
   if (!rawJson) {
-    return {
+    return applyMetaCompletionPressure({
       summary: "Product judge returned an unstructured response.",
       overallScore: Math.max(0, Math.min(100, hiddenCheckScore * 0.85)),
       axes: {},
@@ -1117,16 +1402,20 @@ export async function evaluateProductQuality(
         "Keep iterating on product depth and architecture coherence rather than trusting the current score.",
       ],
       opportunities: [],
+      nextStepThesis: "Keep iterating on the core product loop instead of trusting the malformed judge response.",
+      improvementHypotheses: ["The judge transport failed; use validation and repo signals to keep moving in a deeper direction."],
+      satisfaction: "uncertain",
+      trajectory: "plateauing",
       ...(response.model ? { model: response.model } : {}),
       ...(response.usage ? { usage: response.usage } : {}),
-    };
+    }, hiddenCheckScore, validationResults, signals, previousJudge, context);
   }
 
   let parsed: Record<string, unknown>;
   try {
     parsed = JSON.parse(rawJson) as Record<string, unknown>;
   } catch {
-    return {
+    return applyMetaCompletionPressure({
       summary: "Product judge returned invalid JSON.",
       overallScore: Math.max(0, Math.min(100, hiddenCheckScore * 0.85)),
       axes: {},
@@ -1135,9 +1424,13 @@ export async function evaluateProductQuality(
         "Keep iterating on product depth and architecture coherence rather than trusting the current score.",
       ],
       opportunities: [],
+      nextStepThesis: "Ignore the malformed judge response and keep deepening the strongest shared system in the repo.",
+      improvementHypotheses: ["The model output was malformed; rely on validation and repo-shape evidence for the next move."],
+      satisfaction: "uncertain",
+      trajectory: "plateauing",
       ...(response.model ? { model: response.model } : {}),
       ...(response.usage ? { usage: response.usage } : {}),
-    };
+    }, hiddenCheckScore, validationResults, signals, previousJudge, context);
   }
 
   const opportunities = dedupeOpportunities(
@@ -1146,7 +1439,27 @@ export async function evaluateProductQuality(
       .filter((item): item is OpportunityItem => Boolean(item)),
   );
 
-  return applyRepoSignalCalibration({
+  const fallbackTrajectory = inferTrajectory(
+    {
+      overallScore: clampScore(parsed.overallScore, Math.max(0, Math.min(100, hiddenCheckScore * 0.9))),
+      axes: normalizeAxes(parsed.axes),
+    },
+    signals,
+    validationResults,
+    previousJudge,
+    context,
+  );
+  const fallbackSatisfaction = inferSatisfaction(
+    {
+      overallScore: clampScore(parsed.overallScore, Math.max(0, Math.min(100, hiddenCheckScore * 0.9))),
+      axes: normalizeAxes(parsed.axes),
+    },
+    hiddenCheckScore,
+    validationResults,
+    fallbackTrajectory,
+  );
+
+  return applyMetaCompletionPressure(applyRepoSignalCalibration({
     summary:
       typeof parsed.summary === "string" && parsed.summary.trim().length > 0
         ? truncate(parsed.summary.trim(), 700)
@@ -1158,7 +1471,13 @@ export async function evaluateProductQuality(
       "Deepen the product in the next cycle instead of stopping at structural completeness.",
     ]),
     opportunities,
+    ...(typeof parsed.nextStepThesis === "string" && parsed.nextStepThesis.trim().length > 0
+      ? { nextStepThesis: truncate(parsed.nextStepThesis.trim(), 260) }
+      : {}),
+    improvementHypotheses: normalizeStringList(parsed.improvementHypotheses, []),
+    satisfaction: normalizeSatisfaction(parsed.satisfaction, fallbackSatisfaction),
+    trajectory: normalizeTrajectory(parsed.trajectory, fallbackTrajectory),
     ...(response.model ? { model: response.model } : {}),
     ...(response.usage ? { usage: response.usage } : {}),
-  }, signals);
+  }, signals), hiddenCheckScore, validationResults, signals, previousJudge, context);
 }

@@ -372,9 +372,10 @@ describe("judgeRepo", () => {
       ? JSON.parse(String(fetchArgs.body))
       : undefined;
     const systemPrompt = body?.messages?.[0]?.content;
-    expect(systemPrompt).toContain("Judge this as an operator console with one meaty workflow");
-    expect(systemPrompt).toContain("A single strong operator journey with meaningful shared state.");
-    expect(systemPrompt).toContain("Feature islands and disconnected panels that look broad but feel shallow.");
+    const userPrompt = body?.messages?.[1]?.content;
+    expect(systemPrompt).toContain("Do not let benchmark-authored taste dominate your judgment.");
+    expect(systemPrompt).not.toContain("Judge this as an operator console with one meaty workflow");
+    expect(userPrompt).toContain("baseline artifact kind: Operator console");
   });
 
   it("falls back to a heuristic product review when the model judge is unavailable", async () => {

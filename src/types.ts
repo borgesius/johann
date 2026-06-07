@@ -1,5 +1,10 @@
 export type WorkerType = "stub" | "openrouter" | "opencode";
 export type AppSmokeTarget = "browser" | "electron";
+export type LoopClassification =
+  | "focused_build"
+  | "repair_loop"
+  | "validation_loop"
+  | "true_thrash";
 
 export type PolicyId =
   | "single_pass"
@@ -141,7 +146,11 @@ export interface ProductJudgeConfig {
   minimumTechnicalQualityScore?: number;
   maximumSpecQualityGap?: number;
   minimumValidationScore?: number;
+  artifactKind?: string;
+  domainTags?: string[];
+  /** @deprecated Legacy compatibility only; the generic meta-review is now the primary judge voice. */
   profile?: ProductJudgeProfile;
+  /** @deprecated Legacy compatibility only; the generic meta-review is now the primary judge voice. */
   rubric?: string[];
 }
 
@@ -160,6 +169,10 @@ export interface ProductQualityReview {
   findings: string[];
   recommendations: string[];
   opportunities: OpportunityItem[];
+  nextStepThesis?: string;
+  improvementHypotheses?: string[];
+  satisfaction?: MetaReviewSatisfaction;
+  trajectory?: MetaReviewTrajectory;
   calibration?: {
     evidenceScore: number;
     adjustedFrom: number;
@@ -167,6 +180,27 @@ export interface ProductQualityReview {
   };
   model?: string;
   usage?: TokenUsageSummary;
+}
+
+export type MetaReviewSatisfaction =
+  | "clearing_floors"
+  | "promising"
+  | "strong"
+  | "excellent"
+  | "uncertain";
+
+export type MetaReviewTrajectory =
+  | "improving"
+  | "plateauing"
+  | "regressing"
+  | "thrashing"
+  | "breadth_without_depth";
+
+export interface MetaReview extends ProductQualityReview {
+  nextStepThesis: string;
+  improvementHypotheses: string[];
+  satisfaction: MetaReviewSatisfaction;
+  trajectory: MetaReviewTrajectory;
 }
 
 export interface ValidationResult {
@@ -304,6 +338,7 @@ export interface RunnerPhaseProgress {
   filesTouched?: string[];
   commandsRun?: string[];
   issues?: string[];
+  loopClassification?: LoopClassification;
   recentActions?: PhaseTraceStep[];
   branchCandidateId?: string;
   branchLabel?: string;
@@ -323,6 +358,7 @@ export interface LivePhaseState {
   filesTouched: string[];
   commandsRun: string[];
   issues: string[];
+  loopClassification?: LoopClassification;
   recentActions: PhaseTraceStep[];
   branchCandidateId?: string;
   branchLabel?: string;
@@ -367,6 +403,7 @@ export interface JudgeResult {
   passedChecks: JudgeCheckResult[];
   regressions: string[];
   recommendations: string[];
+  metaReview?: MetaReview;
   productReview?: ProductQualityReview;
   validationResults?: ValidationResult[];
 }

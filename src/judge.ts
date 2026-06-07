@@ -1,11 +1,12 @@
 import path from "node:path";
 import fs from "node:fs/promises";
 import { runBrowserSmoke } from "./app-smoke.js";
-import { evaluateProductQuality, resolveProductJudgeConfig } from "./product-judge.js";
+import { evaluateProductQuality, resolveProductJudgeConfig, type ProductJudgeContext } from "./product-judge.js";
 import type {
   JudgeCheckResult,
   JudgeResult,
   HiddenCheck,
+  PhaseRecord,
   ResolvedBenchmarkSpec,
 } from "./types.js";
 import { findMatches, pathExists, readText, runShellCommand } from "./utils.js";
@@ -22,6 +23,7 @@ function textMatchSummary(raw: string, includes: string[], mode: "all" | "any"):
 
 type JudgeOptions = {
   artifactsDir?: string;
+  context?: ProductJudgeContext;
 };
 
 async function runCheck(
@@ -337,7 +339,7 @@ export async function judgeRepo(
   const hiddenCheckScore = weightedTotalScore(checks, benchmark.judgeWeights);
   const validationResults = await runAutoValidations(repoDir);
   const validationScore = scoreValidationResults(validationResults);
-  const productReview = await evaluateProductQuality(
+  const metaReview = await evaluateProductQuality(
     benchmark,
     repoDir,
     hiddenCheckScore,
@@ -345,9 +347,11 @@ export async function judgeRepo(
     validationResults,
     validationScore,
     previousJudge,
+    options?.context,
   );
-  const productQualityScore = productReview?.overallScore;
-  const technicalQualityScore = productReview?.axes.technical_quality;
+  const productReview = metaReview;
+  const productQualityScore = metaReview?.overallScore;
+  const technicalQualityScore = metaReview?.axes.technical_quality;
   const recommendations = [
     ...failedChecks
       .filter((check) => check.check.required)
@@ -358,7 +362,7 @@ export async function judgeRepo(
     ...validationResults
       .filter((result) => !result.passed)
       .map((result) => `Fix failing validation: ${result.label}`),
-    ...(productReview?.recommendations ?? []),
+    ...(metaReview?.recommendations ?? []),
   ].filter((value, index, items) => items.indexOf(value) === index);
   const byCategory = scoreByCategory(checks);
   if (productQualityScore !== undefined) {
@@ -373,7 +377,7 @@ export async function judgeRepo(
   const passedValidation =
     validationResults.length > 0 ? validationResults.every((result) => result.passed) : undefined;
   const hasModelBackedProductReview =
-    productReview !== undefined && productReview.model !== "heuristic-fallback";
+    metaReview !== undefined && metaReview.model !== "heuristic-fallback";
 
   return {
     scoredAt: new Date().toISOString(),
@@ -382,7 +386,7 @@ export async function judgeRepo(
     ...(productQualityScore !== undefined ? { productQualityScore } : {}),
     ...(technicalQualityScore !== undefined ? { technicalQualityScore } : {}),
     ...(validationScore !== undefined ? { validationScore } : {}),
-    ...(productReview?.usage ? { judgeUsage: productReview.usage } : {}),
+    ...(metaReview?.usage ? { judgeUsage: metaReview.usage } : {}),
     byCategory,
     passedRequired: failedChecks.every((check) => !check.check.required),
     ...(passedValidation !== undefined ? { passedValidation } : {}),
@@ -390,13 +394,14 @@ export async function judgeRepo(
       (
         0.7 +
         Math.min(0.2, checks.length * 0.025) +
-        (hasModelBackedProductReview ? 0.08 : productReview ? 0.02 : 0)
+        (hasModelBackedProductReview ? 0.08 : metaReview ? 0.02 : 0)
       ).toFixed(2),
     ),
     failedChecks,
     passedChecks,
     regressions,
     recommendations,
+    ...(metaReview ? { metaReview } : {}),
     ...(productReview ? { productReview } : {}),
     ...(validationResults.length > 0 ? { validationResults } : {}),
   };

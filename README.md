@@ -2,7 +2,7 @@
 
 `@borgesius/johann` is the root repo for Johann apps.
 
-It contains the local generation/eval harness, seed briefs, and frozen generation artifacts. Benchmark specs now carry their own judge profiles and hidden-check setup, so future seeds can bring their evaluation shape with them instead of depending on case-specific judge prompt code.
+It contains the local generation/eval harness, seed briefs, and frozen generation artifacts. Hidden checks and thin benchmark identity stay with each seed, but Johann now relies primarily on a generic self-evaluating meta-review loop to decide how strong a product really is and what it should do next.
 
 | Version | Name | Description | Seed | Generation |
 | --- | --- | --- | --- | --- |

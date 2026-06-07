@@ -307,8 +307,12 @@ describe("OpenCodeRunner", () => {
     const runner = new OpenCodeRunner(worker, delegate, invoke as never);
     const result = await runner.runPhase(makeContext(repoDir, "execution"));
 
-    expect(result.output.unresolvedIssues?.some((issue) => issue.includes("Thrash risk: src/App.tsx was rewritten 4 times"))).toBe(true);
-    expect(result.output.unresolvedIssues?.some((issue) => issue.includes("repeated command 'npm run build' ran 4 times"))).toBe(true);
+    expect(
+      result.output.unresolvedIssues?.some((issue) =>
+        issue.includes("True thrash detected: repeated failing fingerprint 'npm run build'"),
+      ),
+    ).toBe(true);
+    expect((result.metadata as Record<string, unknown>).loopClassification).toBe("true_thrash");
     expect((result.metadata as Record<string, unknown>).thrashSignals).toBeDefined();
   });
 });

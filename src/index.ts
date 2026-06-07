@@ -237,6 +237,8 @@ type WatchSnapshot = {
     productQualityScore: number | null;
     technicalQualityScore: number | null;
     validationScore: number | null;
+    trajectory: string | null;
+    satisfaction: string | null;
     failedChecks: number;
     failedValidations: number;
     passedRequired: boolean;
@@ -251,6 +253,7 @@ type WatchSnapshot = {
     stepLimit: number | null;
     model: string | null;
     branchLabel: string | null;
+    loopClassification: string | null;
     filesTouched: string[];
     commandsRun: string[];
     issues: string[];
@@ -361,6 +364,7 @@ function buildWatchSnapshot(ledger: LoopState, ledgerPath: string): WatchSnapsho
         stepLimit: ledger.livePhase.stepLimit ?? null,
         model: ledger.livePhase.model ?? ledger.livePhase.primaryModel ?? null,
         branchLabel: ledger.livePhase.branchLabel ?? null,
+        loopClassification: ledger.livePhase.loopClassification ?? null,
         filesTouched: ledger.livePhase.filesTouched.slice(0, 6),
         commandsRun: ledger.livePhase.commandsRun.slice(0, 4),
         issues: ledger.livePhase.issues.slice(0, 4),
@@ -380,6 +384,10 @@ function buildWatchSnapshot(ledger: LoopState, ledgerPath: string): WatchSnapsho
           stepLimit: null,
           model: metadataModel,
           branchLabel: null,
+          loopClassification:
+            typeof latestPhase.metadata?.loopClassification === "string"
+              ? latestPhase.metadata.loopClassification
+              : null,
           filesTouched: (latestPhase.output.filesTouched ?? []).slice(0, 6),
           commandsRun: (latestPhase.output.commandsRun ?? []).slice(0, 4),
           issues: [
@@ -423,6 +431,8 @@ function buildWatchSnapshot(ledger: LoopState, ledgerPath: string): WatchSnapsho
           productQualityScore: latestJudge.productQualityScore ?? null,
           technicalQualityScore: latestJudge.technicalQualityScore ?? null,
           validationScore: latestJudge.validationScore ?? null,
+          trajectory: latestJudge.metaReview?.trajectory ?? null,
+          satisfaction: latestJudge.metaReview?.satisfaction ?? null,
           failedChecks: latestJudge.failedChecks.length,
           failedValidations:
             latestJudge.validationResults?.filter((result) => !result.passed).length ?? 0,
@@ -454,6 +464,11 @@ function renderWatchSnapshot(snapshot: WatchSnapshot, showLedgerPath = false): s
     lines.push(
       `judge: total ${snapshot.judge.totalScore.toFixed(1)} | hidden ${snapshot.judge.hiddenCheckScore ?? "n/a"} | product ${snapshot.judge.productQualityScore ?? "n/a"} | technical ${snapshot.judge.technicalQualityScore ?? "n/a"} | validation ${snapshot.judge.validationScore ?? "n/a"}`,
     );
+    if (snapshot.judge.trajectory || snapshot.judge.satisfaction) {
+      lines.push(
+        `judge meta: trajectory ${snapshot.judge.trajectory ?? "n/a"} | satisfaction ${snapshot.judge.satisfaction ?? "n/a"}`,
+      );
+    }
     lines.push(
       `judge gates: required ${snapshot.judge.passedRequired ? "pass" : "fail"} | validation ${snapshot.judge.passedValidation === null ? "n/a" : snapshot.judge.passedValidation ? "pass" : "fail"} | failed checks ${snapshot.judge.failedChecks} | failed validations ${snapshot.judge.failedValidations}`,
     );
@@ -475,7 +490,7 @@ function renderWatchSnapshot(snapshot: WatchSnapshot, showLedgerPath = false): s
   }
   if (snapshot.activity) {
     lines.push(
-      `${snapshot.activity.live ? "live" : "recent"} activity: ${snapshot.activity.phase}${snapshot.activity.branchLabel ? ` (${snapshot.activity.branchLabel})` : ""}${snapshot.activity.step !== null ? ` | step ${snapshot.activity.step}/${snapshot.activity.stepLimit ?? "?"}` : ""}${snapshot.activity.model ? ` | model ${snapshot.activity.model}` : ""}`,
+      `${snapshot.activity.live ? "live" : "recent"} activity: ${snapshot.activity.phase}${snapshot.activity.branchLabel ? ` (${snapshot.activity.branchLabel})` : ""}${snapshot.activity.step !== null ? ` | step ${snapshot.activity.step}/${snapshot.activity.stepLimit ?? "?"}` : ""}${snapshot.activity.model ? ` | model ${snapshot.activity.model}` : ""}${snapshot.activity.loopClassification ? ` | loop ${snapshot.activity.loopClassification}` : ""}`,
     );
     lines.push(`activity update: ${snapshot.activity.summary}`);
     if (snapshot.activity.filesTouched.length > 0) {

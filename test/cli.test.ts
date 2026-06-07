@@ -90,6 +90,18 @@ describe("runCli chain flow", () => {
       "spec.json",
     );
     await expect(fs.access(generatedSpecPath)).resolves.toBeUndefined();
+    const generatedSpec = await readJson<{
+      productJudge?: {
+        artifactKind?: string;
+        domainTags?: string[];
+        profile?: unknown;
+        rubric?: unknown;
+      };
+    }>(generatedSpecPath);
+    expect(generatedSpec.productJudge?.artifactKind).toBeTruthy();
+    expect(generatedSpec.productJudge?.domainTags?.length).toBeGreaterThan(0);
+    expect(generatedSpec.productJudge?.profile).toBeUndefined();
+    expect(generatedSpec.productJudge?.rubric).toBeUndefined();
 
     const runsDir = path.join(root, ".bench", "runs");
     const entries = await fs.readdir(runsDir);

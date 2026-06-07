@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import type {
+  LoopClassification,
   PhaseTraceStep,
   RunnerAdapter,
   RunnerPhaseContext,
@@ -40,9 +41,10 @@ type OpenCodeInvocationResult = {
 type OpenCodeInvoker = (options: OpenCodeInvocation) => Promise<OpenCodeInvocationResult>;
 
 const DEFAULT_OPENCODE_PHASES: Array<RunnerPhaseContext["phase"]> = ["execution", "review"];
-const FILE_THRASH_THRESHOLD = 4;
-const COMMAND_THRASH_THRESHOLD = 3;
-const RUNTIME_COMMAND_THRASH_THRESHOLD = 2;
+const FILE_REPAIR_THRESHOLD = 4;
+const FILE_TRUE_THRASH_THRESHOLD = 6;
+const COMMAND_VALIDATION_LOOP_THRESHOLD = 2;
+const COMMAND_TRUE_THRASH_THRESHOLD = 4;
 const WRITE_ACTIONS = new Set(["write", "edit", "multiedit"]);
 
 function shouldUseOpenCodePhase(worker: WorkerConfig, phase: RunnerPhaseContext["phase"]): boolean {
@@ -83,6 +85,7 @@ function buildOpenCodePrompt(context: RunnerPhaseContext, repoTree: string[]): s
     "Do not wrap the final JSON in markdown fences.",
     "Do not narrate tool calls in the final response.",
     "Prefer compact, targeted edits and short validation commands over long-running foreground processes.",
+    "When using the bash tool, omit timeout unless you really need it; if you do set timeout, pass a plain integer number of milliseconds, not a quoted or decimal value.",
     buildPhasePrompt(context, repoTree),
   ].join("\n\n");
 }
@@ -192,7 +195,10 @@ function summarizeToolEvent(event: OpenCodeEvent, step: number): {
     trace: {
       step,
       actionType: tool,
-      action: input,
+      action: {
+        ...input,
+        ...(typeof metadata.exit === "number" ? { exitCode: metadata.exit } : {}),
+      },
       observationSummary: truncate(summary, 220),
     },
     touchedFiles: [...touchedFiles],
@@ -220,58 +226,112 @@ function looksLikeRuntimeCommand(command: string): boolean {
   );
 }
 
-function detectThrashSignals(
+type LoopAnalysis = {
+  classification: LoopClassification;
+  signals: string[];
+};
+
+function detectLoopState(
   traces: PhaseTraceStep[],
-  commandsRun: string[],
   rootDir?: string,
-): string[] {
-  const signals: string[] = [];
+): LoopAnalysis {
   const fileWrites = new Map<string, number>();
-  const commandCounts = new Map<string, number>();
+  const commandFingerprints = new Map<string, { command: string; count: number; exitCode?: number }>();
+  const touchedFiles = new Set<string>();
 
   for (const trace of traces) {
     if (!WRITE_ACTIONS.has(trace.actionType)) {
+      if (trace.actionType === "bash" && typeof trace.action.command === "string") {
+        const command = normalizeCommand(trace.action.command);
+        const exitCode =
+          typeof trace.action.exitCode === "number" ? trace.action.exitCode : undefined;
+        if (command) {
+          const fingerprint = `${command}::${exitCode ?? "unknown"}`;
+          const current = commandFingerprints.get(fingerprint) ?? {
+            command,
+            count: 0,
+            ...(exitCode !== undefined ? { exitCode } : {}),
+          };
+          current.count += 1;
+          commandFingerprints.set(fingerprint, current);
+        }
+      }
       continue;
     }
     const filePath = extractTraceFilePath(trace);
-    if (!filePath) {
-      continue;
+    if (filePath) {
+      touchedFiles.add(filePath);
+      fileWrites.set(filePath, (fileWrites.get(filePath) ?? 0) + 1);
     }
-    fileWrites.set(filePath, (fileWrites.get(filePath) ?? 0) + 1);
   }
 
-  for (const [filePath, count] of fileWrites.entries()) {
-    if (count >= FILE_THRASH_THRESHOLD) {
-      const displayPath =
+  const uniqueFiles = [...touchedFiles];
+  const maxWrite = [...fileWrites.values()].sort((left, right) => right - left)[0] ?? 0;
+  const repeatedFailingCommand = [...commandFingerprints.values()]
+    .filter((entry) => entry.exitCode !== undefined && entry.exitCode !== 0)
+    .sort((left, right) => right.count - left.count)[0];
+  const repeatedValidationishCommand = [...commandFingerprints.values()]
+    .filter((entry) =>
+      entry.count >= COMMAND_VALIDATION_LOOP_THRESHOLD
+      && /\b(?:npm|pnpm|yarn)\s+run\s+(?:test|build|lint|typecheck|dev|preview|start)\b|curl\b/i.test(entry.command),
+    )
+    .sort((left, right) => right.count - left.count)[0];
+
+  if (
+    repeatedFailingCommand
+    && repeatedFailingCommand.count >= COMMAND_TRUE_THRASH_THRESHOLD
+    && uniqueFiles.length <= 2
+  ) {
+    const focusFiles = uniqueFiles
+      .map((filePath) =>
         rootDir && path.isAbsolute(filePath) && filePath.startsWith(rootDir)
           ? path.relative(rootDir, filePath)
-          : filePath;
-      signals.push(
-        `Thrash risk: ${displayPath} was rewritten ${count} times in this phase. Pivot to validation or a different fix before touching it again.`,
-      );
-    }
+          : filePath,
+      )
+      .slice(0, 4);
+    return {
+      classification: "true_thrash",
+      signals: [
+        `True thrash detected: repeated failing fingerprint '${truncate(repeatedFailingCommand.command, 140)}' (exit ${repeatedFailingCommand.exitCode}) happened ${repeatedFailingCommand.count} times with edits concentrated in ${focusFiles.join(", ") || "the same surface"}.`,
+      ],
+    };
   }
 
-  for (const command of commandsRun) {
-    const normalized = normalizeCommand(command);
-    if (!normalized) {
-      continue;
-    }
-    commandCounts.set(normalized, (commandCounts.get(normalized) ?? 0) + 1);
+  if (maxWrite >= FILE_TRUE_THRASH_THRESHOLD && uniqueFiles.length <= 2) {
+    const focusFile = [...fileWrites.entries()].sort((left, right) => right[1] - left[1])[0]?.[0];
+    const displayPath =
+      focusFile && rootDir && path.isAbsolute(focusFile) && focusFile.startsWith(rootDir)
+        ? path.relative(rootDir, focusFile)
+        : focusFile;
+    return {
+      classification: "true_thrash",
+      signals: [
+        `True thrash detected: ${displayPath ?? "one file"} was rewritten ${maxWrite} times without enough evidence of state change.`,
+      ],
+    };
   }
 
-  for (const [command, count] of commandCounts.entries()) {
-    const threshold = looksLikeRuntimeCommand(command)
-      ? RUNTIME_COMMAND_THRASH_THRESHOLD
-      : COMMAND_THRASH_THRESHOLD;
-    if (count >= threshold) {
-      signals.push(
-        `Thrash risk: repeated command '${truncate(command, 140)}' ran ${count} times in this phase. Change the likely cause before running it again.`,
-      );
-    }
+  if (repeatedValidationishCommand && repeatedValidationishCommand.count >= COMMAND_VALIDATION_LOOP_THRESHOLD) {
+    return {
+      classification:
+        repeatedValidationishCommand.exitCode !== undefined && repeatedValidationishCommand.exitCode !== 0
+          ? "validation_loop"
+          : "focused_build",
+      signals: [],
+    };
   }
 
-  return signals;
+  if (maxWrite >= FILE_REPAIR_THRESHOLD && uniqueFiles.length <= 3) {
+    return {
+      classification: "repair_loop",
+      signals: [],
+    };
+  }
+
+  return {
+    classification: "focused_build",
+    signals: [],
+  };
 }
 
 function mergeOutput(
@@ -448,6 +508,7 @@ export class OpenCodeRunner implements RunnerAdapter {
       if (!context.onProgress) {
         return;
       }
+      const loopState = detectLoopState(traces, context.repoDir);
       const progress: RunnerPhaseProgress = {
         cycleNumber: context.cycleNumber,
         phase: context.phase,
@@ -459,6 +520,7 @@ export class OpenCodeRunner implements RunnerAdapter {
         filesTouched: [...touchedFiles].slice(-8),
         commandsRun: commandsRun.slice(-6),
         issues: issues.slice(-6),
+        loopClassification: loopState.classification,
         recentActions: traces.slice(-6),
         ...(context.branchCandidate
           ? { branchCandidateId: context.branchCandidate.id, branchLabel: context.branchCandidate.label }
@@ -518,9 +580,9 @@ export class OpenCodeRunner implements RunnerAdapter {
                 issueSet.add(issue);
               }
             }
-            const thrashSignals = detectThrashSignals(traces, commandsRun, context.repoDir);
+            const loopState = detectLoopState(traces, context.repoDir);
             let newestThrashSignal: string | undefined;
-            for (const signal of thrashSignals) {
+            for (const signal of loopState.signals) {
               if (!issueSet.has(signal)) {
                 issues.push(signal);
                 issueSet.add(signal);
@@ -557,8 +619,8 @@ export class OpenCodeRunner implements RunnerAdapter {
 
     const jsonObject = extractJsonObject(textOutput);
     const parsed = jsonObject ? JSON.parse(jsonObject) : undefined;
-    const thrashSignals = detectThrashSignals(traces, commandsRun, context.repoDir);
-    for (const signal of thrashSignals) {
+    const loopState = detectLoopState(traces, context.repoDir);
+    for (const signal of loopState.signals) {
       if (!issueSet.has(signal)) {
         issues.push(signal);
         issueSet.add(signal);
@@ -598,7 +660,8 @@ export class OpenCodeRunner implements RunnerAdapter {
         runner: "opencode",
         model,
         exitCode: result.exitCode,
-        ...(thrashSignals.length > 0 ? { thrashSignals } : {}),
+        loopClassification: loopState.classification,
+        ...(loopState.signals.length > 0 ? { thrashSignals: loopState.signals } : {}),
         ...(usage ? { usage } : {}),
         ...(result.sessionId ? { sessionId: result.sessionId } : {}),
       },

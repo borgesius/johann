@@ -1,0 +1,235 @@
+{
+  "id": "dotcom_idle_game",
+  "title": "Dotcom Idle Game",
+  "summary": "Build a rich TypeScript incremental web game that starts simple and grows into a deep resource-management and replayability loop with dotcom-bubble satire.",
+  "artifactTarget": "Rich incremental web game repo",
+  "publicBriefFile": "benchmarks/dotcom_idle_game/brief.md",
+  "workspaceSeed": "seeds/dotcom_idle_game",
+  "budgets": {
+    "minMinutes": 30,
+    "maxMinutes": 420,
+    "defaultMinutes": 120
+  },
+  "acceptanceCriteria": [
+    "Ship a coherent, runnable incremental web game rather than a design doc or dashboard shell.",
+    "Implement a real progression loop that begins simply and becomes strategically richer over time.",
+    "Model both active and passive play in a way that creates meaningful tradeoffs rather than pure click spam.",
+    "Include replayability, reset structure, prestige, or a clear changed-run scaffold that alters later strategic texture.",
+    "Leave readable docs for development, game design, and balance / progression expectations."
+  ],
+  "branchTemplates": [
+    {
+      "id": "core_loop_shape",
+      "label": "Core loop shape",
+      "stage": "planning",
+      "maxKeep": 2,
+      "candidates": [
+        {
+          "id": "lean-click-to-engine",
+          "label": "Click to engine",
+          "promptHint": "Prioritize a tight early clicker loop that unfolds into production chains, automation, and replayability through one strong shared simulation core."
+        },
+        {
+          "id": "market-satire-management",
+          "label": "Market satire management",
+          "promptHint": "Prioritize a more management-forward take where resources, valuation, investors, staffing, and automation deepen the same shared idle economy over time."
+        }
+      ]
+    }
+  ],
+  "hiddenChecks": [
+    {
+      "id": "dotcom-package",
+      "title": "package.json exists",
+      "category": "repo",
+      "weight": 1,
+      "required": true,
+      "type": "fileExists",
+      "path": "package.json"
+    },
+    {
+      "id": "dotcom-readme",
+      "title": "README exists",
+      "category": "docs",
+      "weight": 1,
+      "required": true,
+      "type": "fileExists",
+      "path": "README.md"
+    },
+    {
+      "id": "dotcom-tsconfig",
+      "title": "TypeScript config exists",
+      "category": "repo",
+      "weight": 1,
+      "required": true,
+      "type": "fileExists",
+      "path": "tsconfig.json"
+    },
+    {
+      "id": "dotcom-src",
+      "title": "Source tree exists",
+      "category": "repo",
+      "weight": 1,
+      "required": true,
+      "type": "globCount",
+      "pattern": "src/**",
+      "count": 1
+    },
+    {
+      "id": "dotcom-web-entry",
+      "title": "Web entry exists",
+      "category": "product",
+      "weight": 1.5,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/main.tsx",
+        "src/main.ts",
+        "src/App.tsx",
+        "src/app.tsx"
+      ],
+      "count": 1
+    },
+    {
+      "id": "dotcom-game-systems",
+      "title": "Core idle/progression systems exist",
+      "category": "product",
+      "weight": 2.5,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "src/**/*resource*.*",
+        "src/**/*economy*.*",
+        "src/**/*progress*.*",
+        "src/**/*simulation*.*",
+        "src/**/*idle*.*",
+        "src/**/*prestige*.*",
+        "src/**/*automation*.*"
+      ],
+      "count": 2
+    },
+    {
+      "id": "dotcom-balance-doc",
+      "title": "Balance doc exists",
+      "category": "docs",
+      "weight": 2,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "docs/**/*balance*.*",
+        "docs/**/*progression*.*",
+        "docs/**/*economy*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "dotcom-design-doc",
+      "title": "Game design doc exists",
+      "category": "docs",
+      "weight": 1.5,
+      "required": true,
+      "type": "globAnyCount",
+      "patterns": [
+        "docs/**/*game-design*.*",
+        "docs/**/*design*.*"
+      ],
+      "count": 1
+    },
+    {
+      "id": "dotcom-theme-text",
+      "title": "Repo text reflects the dotcom satire and idle design",
+      "category": "product",
+      "weight": 2,
+      "required": true,
+      "type": "globTextIncludes",
+      "pattern": "{README.md,docs/**,src/**}",
+      "includes": [
+        "automation",
+        "investor",
+        "valuation",
+        "idle"
+      ],
+      "mode": "all"
+    },
+    {
+      "id": "dotcom-build",
+      "title": "Build path passes",
+      "category": "quality",
+      "weight": 2.5,
+      "required": true,
+      "type": "commandExitZero",
+      "command": "npm run build",
+      "timeoutSeconds": 120,
+      "env": {
+        "NODE_ENV": "test"
+      }
+    }
+  ],
+  "judgeWeights": {
+    "product": 0.3,
+    "quality": 0.2,
+    "docs": 0.2,
+    "repo": 0.1,
+    "systems": 0.2
+  },
+  "expectedRoleOutputs": {
+    "pm_tl_intake": [
+      "core progression vision",
+      "program map",
+      "architecture directives"
+    ],
+    "planning": [
+      "core loop plan",
+      "balance/progression plan",
+      "validation strategy"
+    ],
+    "execution": [
+      "repo changes",
+      "commands run",
+      "unresolved issues"
+    ],
+    "review": [
+      "product critique",
+      "balance critique",
+      "repair recommendations"
+    ],
+    "pm_tl_reprioritization": [
+      "updated queue",
+      "promoted opportunities",
+      "next gameplay slice"
+    ]
+  },
+  "successThreshold": 84,
+  "productJudge": {
+    "enabled": true,
+    "workerModel": "qwen/qwen3-coder-flash",
+    "hiddenCheckWeight": 0.3,
+    "productQualityWeight": 0.7,
+    "minimumProductQualityScore": 68,
+    "minimumTechnicalQualityScore": 58,
+    "maximumSpecQualityGap": 16,
+    "minimumValidationScore": 65,
+    "profile": {
+      "summary": "Judge whether the repo feels like the beginning of a genuinely deep incremental game rather than a clicker clone, dashboard shell, or design-doc-heavy prototype.",
+      "priorities": [
+        "Treat hidden checks as the structural floor, not the main meaning of success.",
+        "Prefer one deep, evolving idle/progression spine over broad feature sprawl.",
+        "Care about active/passive play interplay, pacing, replayability, and balance thinking."
+      ],
+      "reward": [
+        "A satisfying early loop that unfolds into richer resource, automation, and replay structures.",
+        "Shared simulation/economy systems that multiple UI surfaces depend on.",
+        "Thoughtful progression and balance reasoning with explicit milestone expectations for different play styles.",
+        "Satirical theme expression that emerges through mechanics and progression, not just flavor text."
+      ],
+      "penalize": [
+        "Cookie-clicker shallowness, disconnected minigames, spreadsheet theater without fun, and prestige/replay ideas that are merely sketched but not systemically grounded.",
+        "Feature sprawl where many panels exist but the underlying economy and progression remain thin.",
+        "Aesthetic flourish that substitutes for real idle/incremental design."
+      ],
+      "opportunities": [
+        "Suggest next moves that deepen the shared economy/progression spine, improve pacing, or make active and passive play interact more interestingly."
+      ]
+    }
+  }
+}

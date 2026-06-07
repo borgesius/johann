@@ -8,7 +8,9 @@ import type {
 import { truncate } from "./utils.js";
 
 function findingMatches(judge: JudgeResult, pattern: RegExp): boolean {
-  return (judge.productReview?.findings ?? []).some((finding) => pattern.test(finding));
+  return (judge.metaReview?.findings ?? judge.productReview?.findings ?? []).some((finding) =>
+    pattern.test(finding),
+  );
 }
 
 function failedBrowserSmokeSummary(
@@ -32,9 +34,9 @@ function failedBrowserSmokeSummary(
   return reviewSignal ? truncate(reviewSignal, 260) : undefined;
 }
 
-function thrashSummary(reviewOutput?: StructuredPhaseOutput): string | undefined {
+function loopIssueSummary(pattern: RegExp, reviewOutput?: StructuredPhaseOutput): string | undefined {
   const signal = [...(reviewOutput?.unresolvedIssues ?? []), ...(reviewOutput?.risks ?? [])].find((item) =>
-    /thrash risk|rewritten .* times|repeated command .* ran .* times/i.test(item),
+    pattern.test(item),
   );
   return signal ? truncate(signal, 260) : undefined;
 }
@@ -86,14 +88,79 @@ export function buildPriorityQueue(
     });
   }
 
-  for (const recommendation of judge.productReview?.recommendations ?? []) {
+  const metaReview = judge.metaReview ?? judge.productReview;
+
+  if (metaReview?.nextStepThesis) {
+    queue.push({
+      id: `product-review-${queue.length + 1}`,
+      bucket: "quality_improvement",
+      title: metaReview.nextStepThesis,
+      rationale:
+        "Primary next-step thesis from the system's own holistic meta-review of the repo and recent trajectory.",
+      source: "meta-review",
+      severity:
+        metaReview.trajectory === "thrashing" || metaReview.satisfaction === "clearing_floors"
+          ? 5
+          : 4,
+    });
+  }
+
+  for (const recommendation of metaReview?.recommendations ?? []) {
     queue.push({
       id: `product-review-${queue.length + 1}`,
       bucket: "quality_improvement",
       title: recommendation,
-      rationale: "Product-quality judge recommendation for a stronger, less checklist-shaped result.",
-      source: "product-judge",
+      rationale: "Holistic meta-review recommendation for a stronger, less demo-shaped result.",
+      source: "meta-review",
       severity: preferOpportunities ? 3 : 2,
+    });
+  }
+
+  if (metaReview?.trajectory === "plateauing") {
+    queue.push({
+      id: `trajectory-plateau-${queue.length + 1}`,
+      bucket: "quality_improvement",
+      title: "Break the plateau with a deeper central move",
+      rationale:
+        "The run appears to be plateauing. Choose one stronger central-loop or shared-system move instead of another incremental cleanup pass.",
+      source: "meta-review:trajectory",
+      severity: 5,
+    });
+  }
+
+  if (metaReview?.trajectory === "breadth_without_depth") {
+    queue.push({
+      id: `trajectory-depth-${queue.length + 1}`,
+      bucket: "quality_improvement",
+      title: "Trade breadth for depth around one shared system",
+      rationale:
+        "The run is adding breadth faster than depth. Stop adding adjacent features and make more of the product depend on one underlying engine, model, or state layer.",
+      source: "meta-review:trajectory",
+      severity: 5,
+    });
+  }
+
+  if (metaReview?.trajectory === "thrashing") {
+    queue.push({
+      id: `trajectory-thrash-${queue.length + 1}`,
+      bucket: "must_fix_regression",
+      title: "Break the true thrash loop before spending more budget",
+      rationale:
+        "The latest trajectory looks like true thrash rather than healthy iteration. Change tactics and target the likeliest causal fix before repeating the same loop.",
+      source: "meta-review:trajectory",
+      severity: 5,
+    });
+  }
+
+  if (metaReview?.satisfaction === "clearing_floors") {
+    queue.push({
+      id: `meta-floor-${queue.length + 1}`,
+      bucket: "quality_improvement",
+      title: "Make the product genuinely strong, not merely floor-complete",
+      rationale:
+        "The holistic meta-review still reads this as mostly clearing floors rather than becoming a strong final product. Prioritize depth, coherence, and shared-system quality over more box checking.",
+      source: "meta-review:satisfaction",
+      severity: 5,
     });
   }
 
@@ -114,15 +181,15 @@ export function buildPriorityQueue(
   }
 
   if (
-    judge.productReview?.axes?.product_depth !== undefined &&
-    judge.productReview.axes.product_depth < 55
+    metaReview?.axes?.product_depth !== undefined &&
+    metaReview.axes.product_depth < 55
   ) {
     queue.push({
       id: `product-depth-${queue.length + 1}`,
       bucket: "quality_improvement",
       title: "Implement one real core mechanic with visible consequences",
       rationale:
-        `Product depth is still only ${judge.productReview.axes.product_depth.toFixed(1)}. The next cycle should add a concrete end-to-end mechanic where player input changes state and produces visible downstream behavior, instead of spending most of the budget on shell, docs, or generic infrastructure.`,
+        `Product depth is still only ${metaReview.axes.product_depth.toFixed(1)}. The next cycle should add a concrete end-to-end mechanic where user input changes state and produces visible downstream behavior, instead of spending most of the budget on shell, docs, or generic infrastructure.`,
       source: "product-depth",
       severity: 5,
     });
@@ -131,8 +198,8 @@ export function buildPriorityQueue(
   if (
     findingMatches(judge, /feature islands|presentation surfaces relative to the amount of deeper system|cluster of demos/i)
     || (
-      (judge.productReview?.axes?.architecture_coherence ?? 100) < 82
-      && (judge.productReview?.axes?.product_depth ?? 100) < 82
+      (metaReview?.axes?.architecture_coherence ?? 100) < 82
+      && (metaReview?.axes?.product_depth ?? 100) < 82
     )
   ) {
     queue.push({
@@ -149,7 +216,7 @@ export function buildPriorityQueue(
   if (
     findingMatches(judge, /little or no automated behavior coverage|tests look shallow/i)
     || (
-      (judge.productReview?.axes?.technical_quality ?? 100) < 70
+      (metaReview?.axes?.technical_quality ?? 100) < 70
       && (judge.validationResults ?? []).every((result) => result.category !== "test")
     )
   ) {
@@ -196,14 +263,17 @@ export function buildPriorityQueue(
     });
   }
 
-  const thrashSignal = thrashSummary(reviewOutput);
-  if (thrashSignal) {
+  const thrashSignal = loopIssueSummary(
+    /true thrash|thrash loop|repeated same failing fingerprint|thrash risk|rewritten .* times|repeated command .* ran .* times/i,
+    reviewOutput,
+  );
+  if (thrashSignal || metaReview?.trajectory === "thrashing") {
     queue.push({
       id: `thrash-${queue.length + 1}`,
-      bucket: "quality_improvement",
+      bucket: "must_fix_regression",
       title: "Break the current thrash loop and pivot to a more decisive fix",
-      rationale: `The last cycle showed repeated rewrites or repeated commands without enough forward progress. Stop circling the same surface and choose a more decisive validation-first or root-cause-first move. ${thrashSignal}`,
-      source: "execution-thrash",
+      rationale: `The last cycle looked like true thrash rather than focused building. Stop circling the same surface and choose a more decisive validation-first or root-cause-first move.${thrashSignal ? ` ${thrashSignal}` : ""}`,
+      source: "meta-review:thrash",
       severity: 5,
     });
   }

@@ -256,33 +256,6 @@ function customBriefHiddenChecks(kind: string, useTypeScript: boolean): HiddenCh
 }
 
 function customProductJudge(kind: string, useTypeScript: boolean): ProductJudgeConfig {
-  const reward = [
-    "Feature depth, architecture coherence, thoughtful UX structure, and evidence of iteration.",
-    "A shared system spine or core loop that makes the product feel like one thing rather than a cluster of parts.",
-  ];
-  const penalize = [
-    "Shallow scaffolds, missing core loops, and implementations that technically pass but still feel empty.",
-  ];
-
-  if (kind === "electron") {
-    reward.push(
-      "For Electron products, a meaningful desktop structure and a real product surface, not just entrypoints.",
-    );
-    penalize.push(
-      "Over-rewarding a clean Electron shell, passing TypeScript build, README, or trivial tests when the actual game/app logic remains mostly placeholder.",
-    );
-  }
-  if (useTypeScript) {
-    penalize.push(
-      "Quietly falling back to plain JavaScript for the main product code when the brief explicitly asked for TypeScript.",
-    );
-  }
-  if (kind === "service") {
-    reward.push(
-      "For services, API or runtime design that feels operationally credible, not just syntactically present.",
-    );
-  }
-
   return {
     enabled: true,
     workerModel: "qwen/qwen3-coder-flash",
@@ -292,18 +265,20 @@ function customProductJudge(kind: string, useTypeScript: boolean): ProductJudgeC
     minimumTechnicalQualityScore: kind === "electron" ? 58 : 55,
     maximumSpecQualityGap: kind === "electron" ? 14 : 18,
     minimumValidationScore: 55,
-    profile: {
-      summary: "Judge whether the repo feels like a serious product attempt rather than a benchmark box-checker.",
-      priorities: [
-        "Treat hidden checks as the structural floor, not the main meaning of quality.",
-        "Prefer one deeper, integrated system over broad but disconnected surfaces.",
-      ],
-      reward,
-      penalize,
-      opportunities: [
-        "Suggest next moves that deepen the core product and improve technical integrity instead of expanding breadth for its own sake.",
-      ],
-    },
+    artifactKind:
+      kind === "electron"
+        ? "desktop application"
+        : kind === "service"
+          ? "service or API"
+          : kind === "webapp"
+            ? "web application"
+            : kind === "library"
+              ? "library"
+              : "application",
+    domainTags: [
+      kind,
+      ...(useTypeScript ? ["typescript"] : []),
+    ],
   };
 }
 

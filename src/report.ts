@@ -171,13 +171,16 @@ ${state.finalJudge.validationResults
   .join("\n")}
 
 `
-  : ""}${state.finalJudge?.productReview
+  : ""}${(state.finalJudge?.metaReview ?? state.finalJudge?.productReview)
   ? `## Final Product Review
 
-- Summary: ${state.finalJudge.productReview.summary}
-- Findings: ${state.finalJudge.productReview.findings.length > 0 ? state.finalJudge.productReview.findings.join("; ") : "none"}
-- Recommendations: ${state.finalJudge.productReview.recommendations.length > 0 ? state.finalJudge.productReview.recommendations.join("; ") : "none"}
-- Opportunities: ${state.finalJudge.productReview.opportunities.length > 0 ? state.finalJudge.productReview.opportunities.map((item) => item.title).join("; ") : "none"}
+- Summary: ${(state.finalJudge.metaReview ?? state.finalJudge.productReview)!.summary}
+- Trajectory: ${(state.finalJudge.metaReview ?? state.finalJudge.productReview)!.trajectory ?? "n/a"}
+- Satisfaction: ${(state.finalJudge.metaReview ?? state.finalJudge.productReview)!.satisfaction ?? "n/a"}
+- Next step thesis: ${(state.finalJudge.metaReview ?? state.finalJudge.productReview)!.nextStepThesis ?? "n/a"}
+- Findings: ${(state.finalJudge.metaReview ?? state.finalJudge.productReview)!.findings.length > 0 ? (state.finalJudge.metaReview ?? state.finalJudge.productReview)!.findings.join("; ") : "none"}
+- Recommendations: ${(state.finalJudge.metaReview ?? state.finalJudge.productReview)!.recommendations.length > 0 ? (state.finalJudge.metaReview ?? state.finalJudge.productReview)!.recommendations.join("; ") : "none"}
+- Opportunities: ${(state.finalJudge.metaReview ?? state.finalJudge.productReview)!.opportunities.length > 0 ? (state.finalJudge.metaReview ?? state.finalJudge.productReview)!.opportunities.map((item) => item.title).join("; ") : "none"}
 
 `
   : ""}${cycleLines}

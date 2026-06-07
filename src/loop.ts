@@ -117,7 +117,10 @@ function buildInitialState(
   carryoverPriorities: PriorityItem[] = [],
 ): LoopState {
   const createdAt = nowIso();
-  const baselineOpportunities = baselineJudge.productReview?.opportunities ?? [];
+  const baselineOpportunities =
+    baselineJudge.metaReview?.opportunities
+    ?? baselineJudge.productReview?.opportunities
+    ?? [];
   return {
     runId: path.basename(paths.runDir),
     benchmarkId,
@@ -438,6 +441,17 @@ function holisticCompletionGaps(
     reasons.push("automatic validations are still failing");
   }
 
+  if (latestJudge.metaReview?.satisfaction === "clearing_floors") {
+    reasons.push("meta-review still sees the product as mostly clearing floors");
+  }
+
+  if (
+    latestJudge.metaReview?.trajectory === "breadth_without_depth"
+    || latestJudge.metaReview?.trajectory === "thrashing"
+  ) {
+    reasons.push(`meta-review trajectory is ${latestJudge.metaReview.trajectory}`);
+  }
+
   return reasons;
 }
 
@@ -514,6 +528,7 @@ async function setLivePhase(
     commandsRun: [],
     issues: [],
     recentActions: [],
+    loopClassification: "focused_build",
   };
   await persistState(state);
 }
@@ -543,6 +558,7 @@ async function updateLivePhaseProgress(
     filesTouched: progress.filesTouched ?? [],
     commandsRun: progress.commandsRun ?? [],
     issues: progress.issues ?? [],
+    ...(progress.loopClassification ? { loopClassification: progress.loopClassification } : {}),
     recentActions: progress.recentActions ?? [],
     ...(progress.step !== undefined ? { step: progress.step } : {}),
     ...(progress.stepLimit !== undefined ? { stepLimit: progress.stepLimit } : {}),
@@ -769,10 +785,10 @@ function buildJudgingPhaseRecord(
       notes: previousJudge
         ? [
             `Previous score was ${previousJudge.totalScore.toFixed(1)}`,
-            ...(judge.productReview ? [`Product review: ${judge.productReview.summary}`] : []),
+            ...(judge.metaReview ? [`Meta review: ${judge.metaReview.summary}`] : []),
           ]
-        : judge.productReview
-          ? [`Product review: ${judge.productReview.summary}`]
+        : judge.metaReview
+          ? [`Meta review: ${judge.metaReview.summary}`]
           : [],
     },
     rawOutputPath: path.join(outputDir, "judging.json"),
@@ -860,6 +876,11 @@ async function runBranchCandidates(
     );
     const judge = await judgeRepo(baseContext.benchmark, repoDir, baseContext.previousJudge, {
       artifactsDir: branchDir,
+      context: {
+        cycleNumber,
+        recentPhases: [execution, review],
+        scoreHistory: state.scoreHistory,
+      },
     });
     await writeJudgeArtifact(path.join(branchDir, "judging.json"), judge);
 
@@ -1048,6 +1069,11 @@ async function runCycle(
     }
     judge = await judgeRepo(benchmark, state.paths.repoDir, state.finalJudge, {
       artifactsDir: cycleDir,
+      context: {
+        cycleNumber,
+        recentPhases: cycle.phases,
+        scoreHistory: state.scoreHistory,
+      },
     });
     await writeJudgeArtifact(path.join(cycleDir, "judging.json"), judge);
   }
@@ -1062,9 +1088,12 @@ async function runCycle(
     undefined,
     reviewOutput?.workBreakdown,
     "judge:carryover",
-    judge.productReview?.opportunities,
+    judge.metaReview?.opportunities ?? judge.productReview?.opportunities,
   );
-  mergeStateOpportunities(state, judge.productReview?.opportunities);
+  mergeStateOpportunities(
+    state,
+    judge.metaReview?.opportunities ?? judge.productReview?.opportunities,
+  );
   cycle.phases.push(buildJudgingPhaseRecord(judge, cycleDir, previousFinalJudge));
   await setLivePhase(
     state,
@@ -1165,6 +1194,11 @@ export async function runLoopExperiment(options: RunLoopOptions): Promise<CellRe
   await prepareRunWorkspace(benchmark, paths, options.seedOverride);
   const baselineJudge = await judgeRepo(benchmark, paths.repoDir, undefined, {
     artifactsDir: paths.artifactsDir,
+    context: {
+      cycleNumber: 0,
+      recentPhases: [],
+      scoreHistory: [],
+    },
   });
   await writeJudgeArtifact(path.join(paths.artifactsDir, "baseline-judge.json"), baselineJudge);
   const stopRules = createStopRules(options.loaded, benchmark, options);
@@ -1216,6 +1250,15 @@ export async function runLoopExperiment(options: RunLoopOptions): Promise<CellRe
           : []),
         ...(cycle.judge.validationScore !== undefined
           ? [`Latest validation score: ${cycle.judge.validationScore.toFixed(1)}`]
+          : []),
+        ...(cycle.judge.metaReview?.trajectory
+          ? [`Latest meta trajectory: ${cycle.judge.metaReview.trajectory}`]
+          : []),
+        ...(cycle.judge.metaReview?.satisfaction
+          ? [`Latest meta satisfaction: ${cycle.judge.metaReview.satisfaction}`]
+          : []),
+        ...(cycle.judge.metaReview?.nextStepThesis
+          ? [`Meta next step: ${cycle.judge.metaReview.nextStepThesis}`]
           : []),
         `Delta from baseline: ${(cycle.judge.totalScore - state.baselineScore).toFixed(1)}`,
         ...(cycle.winningBranchId ? [`Winning branch: ${cycle.winningBranchId}`] : []),

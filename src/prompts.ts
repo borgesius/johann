@@ -348,7 +348,7 @@ function renderJudgeFailures(context: RunnerPhaseContext): string {
 }
 
 function renderProductReview(context: RunnerPhaseContext): string {
-  const review = context.previousJudge?.productReview;
+  const review = context.previousJudge?.metaReview ?? context.previousJudge?.productReview;
   if (!review) {
     return "- none";
   }
@@ -360,6 +360,9 @@ function renderProductReview(context: RunnerPhaseContext): string {
     `- score: ${review.overallScore.toFixed(1)}`,
     `- summary: ${review.summary}`,
     axes ? `- axes: ${axes}` : undefined,
+    review.trajectory ? `- trajectory: ${review.trajectory}` : undefined,
+    review.satisfaction ? `- satisfaction: ${review.satisfaction}` : undefined,
+    review.nextStepThesis ? `- next-step thesis: ${review.nextStepThesis}` : undefined,
     review.findings.length > 0 ? `- findings: ${review.findings.slice(0, 4).join("; ")}` : undefined,
     review.recommendations.length > 0
       ? `- recommendations: ${review.recommendations.slice(0, 4).join("; ")}`
@@ -419,7 +422,7 @@ function renderCompletionPressure(context: RunnerPhaseContext): string {
     );
   }
   if (
-    (judge.productReview?.findings ?? []).some((finding) =>
+    (judge.metaReview?.findings ?? judge.productReview?.findings ?? []).some((finding) =>
       /feature islands|presentation surfaces relative to the amount of deeper system|cluster of demos/i.test(finding),
     )
   ) {
@@ -428,12 +431,32 @@ function renderCompletionPressure(context: RunnerPhaseContext): string {
     );
   }
   if (
-    (judge.productReview?.findings ?? []).some((finding) =>
+    (judge.metaReview?.findings ?? judge.productReview?.findings ?? []).some((finding) =>
       /little or no automated behavior coverage|tests look shallow/i.test(finding),
     )
   ) {
     notes.push(
       "Behavior coverage is too weak for the current amount of implementation. Spend part of the next cycle proving the core loop or shared system with meaningful tests.",
+    );
+  }
+  if (judge.metaReview?.trajectory === "plateauing") {
+    notes.push(
+      "Trajectory looks plateaued. Prefer a stronger next-step thesis around one central system or loop instead of another incremental cleanup pass.",
+    );
+  }
+  if (judge.metaReview?.trajectory === "thrashing") {
+    notes.push(
+      "The last cycle looked like a true thrash loop. Change tactics and fix the likely root cause before repeating the same surface edits or commands.",
+    );
+  }
+  if (judge.metaReview?.trajectory === "breadth_without_depth") {
+    notes.push(
+      "The run is adding breadth faster than depth. The next cycle should consolidate around a shared system spine instead of broadening the surface area.",
+    );
+  }
+  if (judge.metaReview?.satisfaction === "clearing_floors") {
+    notes.push(
+      "The system’s own holistic read is that this is still mostly clearing floors, not becoming strong. Do not treat the current shape as close to done.",
     );
   }
   return notes.length > 0 ? notes.map((item) => `- ${item}`).join("\n") : "- none";
