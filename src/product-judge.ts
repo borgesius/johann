@@ -764,6 +764,86 @@ function dedupeStrings(values: string[]): string[] {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
 
+function isToolingLikeArtifact(
+  benchmark: ResolvedBenchmarkSpec,
+  config: EffectiveProductJudgeConfig | undefined,
+): boolean {
+  const artifact = `${config?.artifactKind ?? ""} ${benchmark.artifactTarget}`.toLowerCase();
+  const tags = new Set((config?.domainTags ?? []).map((tag) => tag.toLowerCase()));
+  return /harness|benchmark|tool|tooling|runner|agent runtime|evaluation system|developer infrastructure/.test(artifact)
+    || tags.has("self-improvement")
+    || tags.has("tooling")
+    || tags.has("benchmark")
+    || tags.has("agent");
+}
+
+function buildEvaluationPlan(
+  benchmark: ResolvedBenchmarkSpec,
+  config: EffectiveProductJudgeConfig | undefined,
+  signals: RepoSignals,
+  validationResults: ValidationResult[],
+  review: {
+    overallScore: number;
+    axes: Record<string, number>;
+  },
+  existing: string[] = [],
+): string[] {
+  const plan = [...existing];
+  const failedValidation = validationResults.filter((result) => !result.passed);
+  if (failedValidation.length > 0) {
+    for (const item of failedValidation.slice(0, 2)) {
+      plan.push(`Repair '${item.label}', then rerun it and compare the failure fingerprint against the previous attempt before moving on.`);
+    }
+  }
+  if (signals.testFiles === 0 && signals.coreImplementationFiles >= 3) {
+    plan.push("Add one behavior test around the core loop or shared system, then rerun test/build/smoke so the same improvement is proven under automation.");
+  }
+  if (signals.runtimeValidationFailed) {
+    plan.push("After runtime closure, run one live smoke or representative user-path check and compare launch behavior against the last failing run.");
+  }
+  if (isToolingLikeArtifact(benchmark, config)) {
+    plan.push("Run at least one holdout benchmark or brief on the improved system and compare total/product/technical scores plus stop reason against a prior run.");
+    plan.push("If the change claims better self-improvement, run a short before/after comparison on the same seed and inspect whether priorities, plans, and evaluation output actually improved.");
+  } else {
+    plan.push("Choose one representative end-to-end scenario in the product and compare before/after state changes, output quality, and validation results after the next cycle.");
+  }
+  if ((review.axes.product_depth ?? review.overallScore) < 75) {
+    plan.push("After the next deeper product pass, rejudge to see whether product depth improved rather than only hidden-check or validation scores.");
+  }
+  return dedupeStrings(plan).slice(0, 6);
+}
+
+function buildLongHorizonPlan(
+  benchmark: ResolvedBenchmarkSpec,
+  config: EffectiveProductJudgeConfig | undefined,
+  signals: RepoSignals,
+  validationResults: ValidationResult[],
+  review: {
+    overallScore: number;
+    axes: Record<string, number>;
+  },
+  existing: string[] = [],
+): string[] {
+  const plan = [...existing];
+  const failedValidation = validationResults.some((result) => !result.passed);
+  if (failedValidation) {
+    plan.push("First stabilize runtime and validation so future cycles are improving a trustworthy artifact rather than guessing through failures.");
+  }
+  plan.push("Collapse the next stage of work into one shared system spine that multiple surfaces or workflows depend on.");
+  if ((review.axes.product_depth ?? review.overallScore) < 78) {
+    plan.push("Deepen one central loop until it is clearly meaty before broadening the surface area again.");
+  }
+  if (signals.testFiles === 0 || (review.axes.technical_quality ?? review.overallScore) < 72) {
+    plan.push("Build enough behavior coverage that later cycles can compare improvements against a stable regression floor.");
+  }
+  if (isToolingLikeArtifact(benchmark, config)) {
+    plan.push("Turn self-critique into repeatable evidence by adding lightweight experiment or comparison lanes for future before/after runs.");
+  } else {
+    plan.push("After the product feels coherent, spend later cycles on replayability, balance, and long-horizon depth instead of more adjacent features.");
+  }
+  return dedupeStrings(plan).slice(0, 5);
+}
+
 function inferTrajectory(
   review: {
     overallScore: number;
@@ -868,6 +948,8 @@ function inferSatisfaction(
 }
 
 function applyMetaCompletionPressure(
+  benchmark: ResolvedBenchmarkSpec,
+  config: EffectiveProductJudgeConfig | undefined,
   review: ProductQualityReview,
   hiddenCheckScore: number,
   validationResults: ValidationResult[],
@@ -877,6 +959,7 @@ function applyMetaCompletionPressure(
 ): MetaReview {
   const trajectory = inferTrajectory(review, signals, validationResults, previousJudge, context);
   const satisfaction = inferSatisfaction(review, hiddenCheckScore, validationResults, trajectory);
+  const toolingLikeArtifact = isToolingLikeArtifact(benchmark, config);
   const improvementHypotheses = dedupeStrings([
     ...(review.improvementHypotheses ?? []),
     ...(trajectory === "breadth_without_depth"
@@ -891,6 +974,15 @@ function applyMetaCompletionPressure(
     ...(validationResults.some((result) => !result.passed)
       ? ["Close failing validations before broadening the product further."]
       : []),
+    ...(!validationResults.some((result) => !result.passed) && (review.axes.product_depth ?? review.overallScore) < 78
+      ? ["If the next cycle really deepens one shared system, product depth should rise faster than hidden-check or checklist progress."]
+      : []),
+    ...(signals.testFiles === 0 && signals.coreImplementationFiles >= 3
+      ? ["If behavior coverage is added around the core loop, later cycles should show fewer ambiguous regressions and less oscillation."]
+      : []),
+    ...(toolingLikeArtifact
+      ? ["If the harness is genuinely improving itself, the same seed should yield clearer priorities, stronger plans, or better final judgments in a before/after comparison."]
+      : []),
   ]).slice(0, 6);
   const nextStepThesis =
     review.nextStepThesis
@@ -902,18 +994,38 @@ function applyMetaCompletionPressure(
           ? "Close runtime and validation issues before adding more product breadth."
           : satisfaction === "clearing_floors"
             ? "Turn the current scaffold into a more convincing product by deepening one central loop with real consequences."
-            : "Keep compounding depth around the strongest shared system, not around more disconnected features.");
+          : "Keep compounding depth around the strongest shared system, not around more disconnected features.");
+  const evaluationPlan = buildEvaluationPlan(
+    benchmark,
+    config,
+    signals,
+    validationResults,
+    review,
+    review.evaluationPlan ?? [],
+  );
+  const longHorizonPlan = buildLongHorizonPlan(
+    benchmark,
+    config,
+    signals,
+    validationResults,
+    review,
+    review.longHorizonPlan ?? [],
+  );
 
   return {
     ...review,
     nextStepThesis,
     improvementHypotheses,
+    evaluationPlan,
+    longHorizonPlan,
     satisfaction,
     trajectory,
   };
 }
 
 function buildHeuristicFallbackReview(
+  benchmark: ResolvedBenchmarkSpec,
+  config: EffectiveProductJudgeConfig | undefined,
   hiddenCheckScore: number,
   failedChecks: JudgeCheckResult[],
   validationResults: ValidationResult[],
@@ -1115,7 +1227,7 @@ function buildHeuristicFallbackReview(
     improvementHypotheses: dedupeStrings([
       ...(signals.runtimeValidationFailed || failedValidationCount > 0
         ? ["The next iteration should spend more budget on runtime closure and less on adding content."]
-        : []),
+      : []),
       ...(signals.surfaceModuleFiles >= 6 && signals.logicModuleFiles <= 3
         ? ["The product needs one stronger shared engine/model rather than more UI islands."]
         : []),
@@ -1123,6 +1235,40 @@ function buildHeuristicFallbackReview(
         ? ["A small behavior test suite around the core loop would improve confidence and future iteration quality."]
         : []),
     ]),
+    evaluationPlan: buildEvaluationPlan(
+      benchmark,
+      config,
+      signals,
+      validationResults,
+      {
+        overallScore,
+        axes: {
+          spec_realization: specRealization,
+          technical_quality: technicalQuality,
+          product_depth: productDepth,
+          experience_quality: experienceQuality,
+          architecture_coherence: architectureCoherence,
+          forward_readiness: forwardReadiness,
+        },
+      },
+    ),
+    longHorizonPlan: buildLongHorizonPlan(
+      benchmark,
+      config,
+      signals,
+      validationResults,
+      {
+        overallScore,
+        axes: {
+          spec_realization: specRealization,
+          technical_quality: technicalQuality,
+          product_depth: productDepth,
+          experience_quality: experienceQuality,
+          architecture_coherence: architectureCoherence,
+          forward_readiness: forwardReadiness,
+        },
+      },
+    ),
     calibration: {
       evidenceScore: clampScore(weightedAverage([
         [hiddenCheckScore, 0.35],
@@ -1249,6 +1395,8 @@ Return JSON with this shape:
   "recommendations": ["..."],
   "nextStepThesis": "one concrete thesis for what the next cycle should do",
   "improvementHypotheses": ["..."],
+  "evaluationPlan": ["how to prove the next claim or compare outcomes"],
+  "longHorizonPlan": ["multi-cycle plan for getting stronger"],
   "satisfaction": "clearing_floors|promising|strong|excellent|uncertain",
   "trajectory": "improving|plateauing|regressing|thrashing|breadth_without_depth",
   "opportunities": [
@@ -1272,6 +1420,8 @@ Rules:
 - Penalize overgrown orchestration shells where a single entrypoint coordinates many features without enough deeper systems behind them.
 - Use validation results, repo previews, recent phase history, and architectural coherence to judge whether this could become a strong final product without rework.
 - Pay special attention to trajectory: decide whether the run is still improving, merely circling, or adding breadth without enough depth.
+- Include a concrete evaluation plan that would prove or falsify the next claimed improvement, especially for tooling, agents, harnesses, or systems that claim to improve their own capability.
+- Include a short long-horizon plan for how the product should get stronger over multiple cycles rather than only the next local fix.
 - Prefer opportunities that would deepen the product, improve technical integrity, or make the result feel more complete and intentional.
 - Keep findings, recommendations, and the next-step thesis concrete, blunt, and useful.`,
     },
@@ -1372,8 +1522,12 @@ export async function evaluateProductQuality(
   } catch (error) {
     const reason = error instanceof Error ? error.message : "unknown model-judge error";
     return applyMetaCompletionPressure(
+      benchmark,
+      config,
       applyRepoSignalCalibration(
       buildHeuristicFallbackReview(
+        benchmark,
+        config,
         hiddenCheckScore,
         failedChecks,
         validationResults,
@@ -1393,7 +1547,7 @@ export async function evaluateProductQuality(
 
   const rawJson = extractJsonObject(response.content);
   if (!rawJson) {
-    return applyMetaCompletionPressure({
+    return applyMetaCompletionPressure(benchmark, config, {
       summary: "Product judge returned an unstructured response.",
       overallScore: Math.max(0, Math.min(100, hiddenCheckScore * 0.85)),
       axes: {},
@@ -1404,6 +1558,8 @@ export async function evaluateProductQuality(
       opportunities: [],
       nextStepThesis: "Keep iterating on the core product loop instead of trusting the malformed judge response.",
       improvementHypotheses: ["The judge transport failed; use validation and repo signals to keep moving in a deeper direction."],
+      evaluationPlan: ["Rely on validation, a core behavior test, and one before/after comparison on the main loop until the judge transport is healthy again."],
+      longHorizonPlan: ["Restore reliable judging, then deepen the shared system and verify gains with repeatable validations and comparisons."],
       satisfaction: "uncertain",
       trajectory: "plateauing",
       ...(response.model ? { model: response.model } : {}),
@@ -1415,7 +1571,7 @@ export async function evaluateProductQuality(
   try {
     parsed = JSON.parse(rawJson) as Record<string, unknown>;
   } catch {
-    return applyMetaCompletionPressure({
+    return applyMetaCompletionPressure(benchmark, config, {
       summary: "Product judge returned invalid JSON.",
       overallScore: Math.max(0, Math.min(100, hiddenCheckScore * 0.85)),
       axes: {},
@@ -1426,6 +1582,8 @@ export async function evaluateProductQuality(
       opportunities: [],
       nextStepThesis: "Ignore the malformed judge response and keep deepening the strongest shared system in the repo.",
       improvementHypotheses: ["The model output was malformed; rely on validation and repo-shape evidence for the next move."],
+      evaluationPlan: ["Use validation plus one representative before/after comparison on the core loop until model-backed judgment is healthy again."],
+      longHorizonPlan: ["Restore clean judge output, then keep compounding depth around one shared system and compare outcomes across runs."],
       satisfaction: "uncertain",
       trajectory: "plateauing",
       ...(response.model ? { model: response.model } : {}),
@@ -1459,7 +1617,7 @@ export async function evaluateProductQuality(
     fallbackTrajectory,
   );
 
-  return applyMetaCompletionPressure(applyRepoSignalCalibration({
+  return applyMetaCompletionPressure(benchmark, config, applyRepoSignalCalibration({
     summary:
       typeof parsed.summary === "string" && parsed.summary.trim().length > 0
         ? truncate(parsed.summary.trim(), 700)
@@ -1475,6 +1633,8 @@ export async function evaluateProductQuality(
       ? { nextStepThesis: truncate(parsed.nextStepThesis.trim(), 260) }
       : {}),
     improvementHypotheses: normalizeStringList(parsed.improvementHypotheses, []),
+    evaluationPlan: normalizeStringList(parsed.evaluationPlan, []),
+    longHorizonPlan: normalizeStringList(parsed.longHorizonPlan, []),
     satisfaction: normalizeSatisfaction(parsed.satisfaction, fallbackSatisfaction),
     trajectory: normalizeTrajectory(parsed.trajectory, fallbackTrajectory),
     ...(response.model ? { model: response.model } : {}),

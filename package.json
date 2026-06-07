@@ -1,8 +1,8 @@
 {
   "name": "@borgesius/johann",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
-  "description": "Johann: versioned seeds, generations, and local runner/eval tooling for Johann apps.",
+  "description": "A local workbench for generating software from seed briefs, evaluating the results, and iterating on the system itself.",
   "type": "module",
   "repository": {
     "type": "git",

@@ -83,6 +83,7 @@ export function renderRunReport(state: LoopState): string {
   const scoreDelta = (state.finalJudge?.totalScore ?? 0) - state.baselineScore;
   const tokensPerScoreDelta =
     scoreDelta > 0 ? Number((usage.totalTokens / scoreDelta).toFixed(1)) : undefined;
+  const finalReview = state.finalJudge?.metaReview ?? state.finalJudge?.productReview;
   const cycleLines = state.cycles
     .map((cycle) => {
       const planningBreakdown =
@@ -171,16 +172,19 @@ ${state.finalJudge.validationResults
   .join("\n")}
 
 `
-  : ""}${(state.finalJudge?.metaReview ?? state.finalJudge?.productReview)
+  : ""}${finalReview
   ? `## Final Product Review
 
-- Summary: ${(state.finalJudge.metaReview ?? state.finalJudge.productReview)!.summary}
-- Trajectory: ${(state.finalJudge.metaReview ?? state.finalJudge.productReview)!.trajectory ?? "n/a"}
-- Satisfaction: ${(state.finalJudge.metaReview ?? state.finalJudge.productReview)!.satisfaction ?? "n/a"}
-- Next step thesis: ${(state.finalJudge.metaReview ?? state.finalJudge.productReview)!.nextStepThesis ?? "n/a"}
-- Findings: ${(state.finalJudge.metaReview ?? state.finalJudge.productReview)!.findings.length > 0 ? (state.finalJudge.metaReview ?? state.finalJudge.productReview)!.findings.join("; ") : "none"}
-- Recommendations: ${(state.finalJudge.metaReview ?? state.finalJudge.productReview)!.recommendations.length > 0 ? (state.finalJudge.metaReview ?? state.finalJudge.productReview)!.recommendations.join("; ") : "none"}
-- Opportunities: ${(state.finalJudge.metaReview ?? state.finalJudge.productReview)!.opportunities.length > 0 ? (state.finalJudge.metaReview ?? state.finalJudge.productReview)!.opportunities.map((item) => item.title).join("; ") : "none"}
+- Summary: ${finalReview.summary}
+- Trajectory: ${finalReview.trajectory ?? "n/a"}
+- Satisfaction: ${finalReview.satisfaction ?? "n/a"}
+- Next step thesis: ${finalReview.nextStepThesis ?? "n/a"}
+- Evaluation plan: ${finalReview.evaluationPlan && finalReview.evaluationPlan.length > 0 ? finalReview.evaluationPlan.join("; ") : "none"}
+- Long-horizon plan: ${finalReview.longHorizonPlan && finalReview.longHorizonPlan.length > 0 ? finalReview.longHorizonPlan.join("; ") : "none"}
+- Improvement hypotheses: ${finalReview.improvementHypotheses && finalReview.improvementHypotheses.length > 0 ? finalReview.improvementHypotheses.join("; ") : "none"}
+- Findings: ${finalReview.findings.length > 0 ? finalReview.findings.join("; ") : "none"}
+- Recommendations: ${finalReview.recommendations.length > 0 ? finalReview.recommendations.join("; ") : "none"}
+- Opportunities: ${finalReview.opportunities.length > 0 ? finalReview.opportunities.map((item) => item.title).join("; ") : "none"}
 
 `
   : ""}${cycleLines}

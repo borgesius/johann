@@ -27,6 +27,7 @@ type OpenCodeInvocation = {
   cwd: string;
   env: NodeJS.ProcessEnv;
   timeoutMs: number;
+  idleTimeoutMs?: number;
   onEvent?: (event: OpenCodeEvent) => void;
 };
 
@@ -36,6 +37,7 @@ type OpenCodeInvocationResult = {
   stderr: string;
   events: OpenCodeEvent[];
   sessionId?: string;
+  timeoutReason?: "total" | "idle";
 };
 
 type OpenCodeInvoker = (options: OpenCodeInvocation) => Promise<OpenCodeInvocationResult>;
@@ -73,6 +75,17 @@ function phaseTimeoutMs(phase: RunnerPhaseContext["phase"]): number {
       return 8 * 60_000;
     default:
       return 5 * 60_000;
+  }
+}
+
+function phaseIdleTimeoutMs(phase: RunnerPhaseContext["phase"]): number {
+  switch (phase) {
+    case "execution":
+      return 4 * 60_000;
+    case "review":
+      return 3 * 60_000;
+    default:
+      return 2 * 60_000;
   }
 }
 
@@ -384,10 +397,28 @@ async function invokeOpenCodeCli(options: OpenCodeInvocation): Promise<OpenCodeI
     let stdoutBuffer = "";
     const events: OpenCodeEvent[] = [];
     let sessionId: string | undefined;
+    let timeoutReason: "total" | "idle" | undefined;
 
     const timer = setTimeout(() => {
+      timeoutReason = "total";
       child.kill("SIGTERM");
     }, options.timeoutMs);
+    let idleTimer: NodeJS.Timeout | undefined;
+
+    const resetIdleTimer = (): void => {
+      if (!options.idleTimeoutMs) {
+        return;
+      }
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+      }
+      idleTimer = setTimeout(() => {
+        timeoutReason = "idle";
+        child.kill("SIGTERM");
+      }, options.idleTimeoutMs);
+    };
+
+    resetIdleTimer();
 
     function flushLines(chunk: string): void {
       stdoutBuffer += chunk;
@@ -404,6 +435,7 @@ async function invokeOpenCodeCli(options: OpenCodeInvocation): Promise<OpenCodeI
           if (parsed.sessionID) {
             sessionId = parsed.sessionID;
           }
+          resetIdleTimer();
           options.onEvent?.(parsed);
         } catch {
           // Keep the raw line in stdout so callers can inspect unexpected output.
@@ -414,20 +446,28 @@ async function invokeOpenCodeCli(options: OpenCodeInvocation): Promise<OpenCodeI
     child.stdout.on("data", (chunk) => {
       const text = chunk.toString();
       stdout += text;
+      resetIdleTimer();
       flushLines(text);
     });
 
     child.stderr.on("data", (chunk) => {
       stderr += chunk.toString();
+      resetIdleTimer();
     });
 
     child.on("error", (error) => {
       clearTimeout(timer);
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+      }
       reject(error);
     });
 
     child.on("close", (code) => {
       clearTimeout(timer);
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+      }
       if (stdoutBuffer.trim().length > 0) {
         try {
           const parsed = JSON.parse(stdoutBuffer.trim()) as OpenCodeEvent;
@@ -446,6 +486,7 @@ async function invokeOpenCodeCli(options: OpenCodeInvocation): Promise<OpenCodeI
         stderr,
         events,
         ...(sessionId ? { sessionId } : {}),
+        ...(timeoutReason ? { timeoutReason } : {}),
       });
     });
   });
@@ -531,19 +572,23 @@ export class OpenCodeRunner implements RunnerAdapter {
 
     reportProgress(`Starting OpenCode ${context.phase} run.`);
 
-    let result: OpenCodeInvocationResult;
-    try {
-      result = await this.invoke({
-        binary: this.worker.opencodeBinary ?? "opencode",
-        args,
-        cwd: context.repoDir,
-        env: {
-          ...process.env,
-          OPENCODE_DISABLE_AUTOUPDATE: "1",
-          OPENCODE_CLIENT: "bench-harness",
-        },
-        timeoutMs: phaseTimeoutMs(context.phase),
-        onEvent: (event) => {
+    const makeInvocation = (retryNote?: string): OpenCodeInvocation => ({
+      binary: this.worker.opencodeBinary ?? "opencode",
+      args: retryNote
+        ? [
+            ...args.slice(0, -1),
+            `${prompt}\n\nRetry note:\n${retryNote}`,
+          ]
+        : args,
+      cwd: context.repoDir,
+      env: {
+        ...process.env,
+        OPENCODE_DISABLE_AUTOUPDATE: "1",
+        OPENCODE_CLIENT: "bench-harness",
+      },
+      timeoutMs: phaseTimeoutMs(context.phase),
+      idleTimeoutMs: phaseIdleTimeoutMs(context.phase),
+      onEvent: (event) => {
           if (event.sessionID) {
             this.sessions.set(context.repoDir, event.sessionID);
           }
@@ -602,7 +647,18 @@ export class OpenCodeRunner implements RunnerAdapter {
             reportProgress(`OpenCode finished a ${context.phase} reasoning step.`);
           }
         },
-      });
+    });
+
+    let result: OpenCodeInvocationResult;
+    try {
+      result = await this.invoke(makeInvocation());
+      if (result.timeoutReason === "idle" && !extractJsonObject(textOutput)) {
+        const idleNote =
+          `The previous OpenCode ${context.phase} attempt went idle after partial progress. ` +
+          "If you are blocked after a validation or smoke failure, change tactic quickly or finish with a structured handoff instead of waiting.";
+        reportProgress(`OpenCode ${context.phase} went idle; retrying once with a sharper recovery note.`);
+        result = await this.invoke(makeInvocation(idleNote));
+      }
     } catch (error) {
       return this.delegate.runPhase({
         ...context,
@@ -646,7 +702,9 @@ export class OpenCodeRunner implements RunnerAdapter {
         ...context,
         handoffNotes: [
           ...context.handoffNotes,
-          `OpenCode ${context.phase} exited with code ${result.exitCode}: ${truncate(result.stderr || result.stdout, 600)}`,
+          `OpenCode ${context.phase} exited with code ${result.exitCode}${
+            result.timeoutReason ? ` after a ${result.timeoutReason} timeout` : ""
+          }: ${truncate(result.stderr || result.stdout, 600)}`,
         ],
       });
     }

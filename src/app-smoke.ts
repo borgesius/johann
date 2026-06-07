@@ -30,6 +30,49 @@ export interface AppSmokeResult {
   screenshotPath?: string;
 }
 
+function parseHostAndPort(targetUrl: string): { host: string; port: string } {
+  try {
+    const parsed = new URL(targetUrl);
+    return {
+      host: parsed.hostname || "127.0.0.1",
+      port: parsed.port || (parsed.protocol === "https:" ? "443" : "80"),
+    };
+  } catch {
+    return { host: "127.0.0.1", port: "4173" };
+  }
+}
+
+export function normalizeBrowserStartCommand(command: string, targetUrl: string): string {
+  const trimmed = command.trim();
+  if (!trimmed) {
+    return trimmed;
+  }
+
+  const { host, port } = parseHostAndPort(targetUrl);
+  const withoutNetworkEnv = trimmed
+    .replace(/\b(?:HOSTNAME|HOST|PORT|VITE_PORT)=\S+\s*/g, "")
+    .trim();
+
+  const hasHost = /(?:^|\s)--host(?:\s|=)|\bHOSTNAME=|\bHOST=/.test(trimmed);
+  const hasPort = /(?:^|\s)--port(?:\s|=)|\bPORT=|\bVITE_PORT=/.test(trimmed);
+
+  if (/\b(?:npm|pnpm|yarn)\s+run\s+preview\b/.test(withoutNetworkEnv)) {
+    if (hasHost && hasPort) {
+      return trimmed;
+    }
+    return `${withoutNetworkEnv} -- --host ${host} --port ${port}`.trim();
+  }
+
+  if (/\bvite\s+preview\b/.test(withoutNetworkEnv)) {
+    if (hasHost && hasPort) {
+      return trimmed;
+    }
+    return `${withoutNetworkEnv} --host ${host} --port ${port}`.trim();
+  }
+
+  return trimmed;
+}
+
 type BackgroundProcess = {
   pid: number;
   stdout: string[];
@@ -141,8 +184,11 @@ export async function runBrowserSmoke(options: BrowserSmokeOptions): Promise<App
   const timeoutMs = options.timeoutMs ?? 45_000;
   const deadline = Date.now() + timeoutMs;
   const requiredText = options.waitForText ?? [];
-  const background = options.startCommand
-    ? startBackgroundProcess(options.startCommand, options.repoDir)
+  const normalizedStartCommand = options.startCommand
+    ? normalizeBrowserStartCommand(options.startCommand, options.url)
+    : undefined;
+  const background = normalizedStartCommand
+    ? startBackgroundProcess(normalizedStartCommand, options.repoDir)
     : undefined;
 
   let browser: { close: () => Promise<void>; newPage: () => Promise<any> } | undefined;
@@ -231,6 +277,9 @@ export async function runBrowserSmoke(options: BrowserSmokeOptions): Promise<App
       details: truncate(
         [
           lastError ? `Last browser error: ${lastError}` : undefined,
+          normalizedStartCommand && normalizedStartCommand !== options.startCommand
+            ? `Normalized start command: ${normalizedStartCommand}`
+            : undefined,
           processLogs ? `Process logs:\n${processLogs}` : undefined,
         ]
           .filter(Boolean)

@@ -116,6 +116,23 @@ export function buildPriorityQueue(
     });
   }
 
+  for (const evaluationStep of metaReview?.evaluationPlan ?? []) {
+    queue.push({
+      id: `evaluation-plan-${queue.length + 1}`,
+      bucket: "quality_improvement",
+      title: evaluationStep,
+      rationale:
+        "Holistic meta-review evidence step for proving whether the next claimed improvement is real.",
+      source: "meta-review:evaluation",
+      severity:
+        metaReview?.satisfaction === "clearing_floors"
+        || metaReview?.trajectory === "plateauing"
+        || metaReview?.trajectory === "thrashing"
+          ? 5
+          : 4,
+    });
+  }
+
   if (metaReview?.trajectory === "plateauing") {
     queue.push({
       id: `trajectory-plateau-${queue.length + 1}`,

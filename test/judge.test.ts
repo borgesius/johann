@@ -286,6 +286,12 @@ describe("judgeRepo", () => {
                 },
                 findings: ["Core flow exists but feature depth is still shallow."],
                 recommendations: ["Deepen the operator flow and add one meaningful end-to-end path."],
+                evaluationPlan: [
+                  "Run one before/after comparison on the main operator flow and compare product depth, validation, and stop reason.",
+                ],
+                longHorizonPlan: [
+                  "Stabilize one shared operator journey, add behavior coverage for it, then broaden only after the core loop feels durable.",
+                ],
                 opportunities: [
                   {
                     id: "deepen-flow",
@@ -366,6 +372,8 @@ describe("judgeRepo", () => {
     expect(judge.judgeUsage?.totalTokens).toBe(160);
     expect(judge.byCategory.product_quality).toBe(80);
     expect(judge.productReview?.opportunities[0]?.title).toBe("Deepen operator flow");
+    expect(judge.productReview?.evaluationPlan?.[0]).toContain("before/after comparison");
+    expect(judge.productReview?.longHorizonPlan?.[0]).toContain("shared operator journey");
     const fetchCall = fetchMock.mock.calls[0] as [unknown, { body?: string } | undefined] | undefined;
     const fetchArgs = fetchCall?.[1];
     const body = fetchArgs && typeof fetchArgs === "object" && "body" in fetchArgs
@@ -497,6 +505,10 @@ describe("judgeRepo", () => {
     expect(judge.productReview?.model).toBe("heuristic-fallback");
     expect(judge.productReview?.findings.join(" ")).toContain("surface-heavy");
     expect(judge.recommendations.join(" ")).toContain("interaction loop");
+    expect(judge.productReview?.evaluationPlan?.join(" ")).toContain("compare before/after");
+    expect(judge.productReview?.evaluationPlan?.join(" ")).not.toContain("self-improvement");
+    expect(judge.productReview?.longHorizonPlan?.join(" ")).toContain("broaden");
+    expect(judge.productReview?.improvementHypotheses?.length ?? 0).toBeGreaterThan(0);
     expect(judge.confidence).toBeLessThan(0.9);
   });
 

@@ -1,9 +1,20 @@
 # Johann
 
-`@borgesius/johann` is the root repo for Johann apps.
+> “Bach said that all his achievements were simply the fruit of industry. But that presupposes humility and an enormous capacity for suffering.”
+>
+> — Ludwig Wittgenstein, *Culture and Value*
 
-It contains the local generation/eval harness, seed briefs, and frozen generation artifacts. Hidden checks and thin benchmark identity stay with each seed, but Johann now relies primarily on a generic self-evaluating meta-review loop to decide how strong a product really is and what it should do next.
+`@borgesius/johann` is a local workbench for generating software from seed briefs, evaluating the results, and iterating on the system itself.
 
-| Version | Name | Description | Seed | Generation |
-| --- | --- | --- | --- | --- |
-| `v0.1.0` | Becoming Site | Elaborate philosophy site about being as stabilized becoming, negatively known limit-points, and nonlinear exploratory surfaces. This is marked `v0.1.0` because the generation was produced before later repo changes. | [philosophy-becoming-site.md](examples/briefs/philosophy-becoming-site.md) | [becoming-site-v0.1.0](generations/becoming-site-v0.1.0.md) |
+In plain language:
+- Johann runs the loop.
+- OpenCode handles tool use and execution.
+- OpenRouter/Qwen supplies the model.
+
+A **seed** is the starting brief. A **generation** is a concrete artifact produced from a run of that seed. The `Version` column below means **Johann version**, not app version.
+
+| Version | Name | Description | Model | Policy | Timing | Seed | Generation |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `v0.1.0` | Becoming Site | Elaborate philosophy site about being as stabilized becoming, negatively known limit-points, and nonlinear exploratory surfaces. This is marked `v0.1.0` because the generation was produced before later repo changes. | `qwen-coder-hybrid-opencode` | `repair_focus_loop` | roughly `45 min` (manually terminated) | [philosophy-becoming-site.md](examples/briefs/philosophy-becoming-site.md) | [repo](.bench/runs/brief-philosophy-becoming-site-qwen-coder-hybrid-opencode-repair-focus-loop-2026-06-07T02-09-50-519Z-7efbee/repo) |
+
+Johann keeps thin structural checks with each seed, but the main judgment is generic: it looks at the repo, validations, trajectory, and recent work to decide how strong the artifact really is and what should happen next.

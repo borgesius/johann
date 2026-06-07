@@ -238,6 +238,64 @@ describe("OpenCodeRunner", () => {
     expect(delegate.runPhase).toHaveBeenCalledTimes(1);
   });
 
+  it("retries once after an idle timeout before falling back", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "opencode-runner-idle-retry-"));
+    tempRoots.push(root);
+    const repoDir = path.join(root, "repo");
+    await fs.mkdir(repoDir, { recursive: true });
+
+    const delegate: RunnerAdapter = {
+      runPhase: vi.fn(async () => ({
+        summary: "delegate",
+        output: { summary: "delegate" },
+      })),
+    };
+
+    let callCount = 0;
+    const invoke = vi.fn(async ({ onEvent }: { onEvent?: (event: Record<string, unknown>) => void }) => {
+      callCount += 1;
+      if (callCount === 1) {
+        return {
+          exitCode: 1,
+          stdout: "",
+          stderr: "idle timeout",
+          events: [],
+          timeoutReason: "idle" as const,
+        };
+      }
+
+      const events = [
+        {
+          type: "text",
+          sessionID: "ses_retry",
+          part: {
+            text: JSON.stringify({
+              summary: "Recovered after one idle retry.",
+              recommendations: ["Keep runtime closure decisive."],
+            }),
+          },
+        },
+      ];
+      for (const event of events) {
+        onEvent?.(event);
+      }
+      return {
+        exitCode: 0,
+        stdout: "",
+        stderr: "",
+        events,
+        sessionId: "ses_retry",
+      };
+    });
+
+    const runner = new OpenCodeRunner(worker, delegate, invoke as never);
+    const result = await runner.runPhase(makeContext(repoDir, "execution"));
+
+    expect(result.summary).toBe("Recovered after one idle retry.");
+    expect(delegate.runPhase).not.toHaveBeenCalled();
+    expect(invoke).toHaveBeenCalledTimes(2);
+  });
+
   it("surfaces thrash signals when the same file and command repeat too many times", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "opencode-runner-thrash-"));
     tempRoots.push(root);

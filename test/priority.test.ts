@@ -27,6 +27,8 @@ function makeJudge(): JudgeResult {
       },
       findings: ["The repo needs more product depth."],
       recommendations: ["Promote a deeper workflow into active delivery."],
+      evaluationPlan: ["Run one before/after comparison on the main workflow and compare product depth, validation, and stop reason."],
+      longHorizonPlan: ["Stabilize the core loop, add behavior coverage, then broaden only after the shared system feels real."],
       opportunities: [],
     },
   };
@@ -79,6 +81,9 @@ describe("buildPriorityQueue", () => {
     expect(queue.map((item) => item.title)).toContain("Stabilize the run ledger");
     expect(queue.map((item) => item.title)).toContain("Own the main release-control journey");
     expect(queue.map((item) => item.title)).toContain("Promote a deeper workflow into active delivery.");
+    expect(queue.map((item) => item.title)).toContain(
+      "Run one before/after comparison on the main workflow and compare product depth, validation, and stop reason.",
+    );
     expect(queue.map((item) => item.title)).toContain("Deepen the operator workflow");
   });
 

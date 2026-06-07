@@ -171,6 +171,8 @@ export interface ProductQualityReview {
   opportunities: OpportunityItem[];
   nextStepThesis?: string;
   improvementHypotheses?: string[];
+  evaluationPlan?: string[];
+  longHorizonPlan?: string[];
   satisfaction?: MetaReviewSatisfaction;
   trajectory?: MetaReviewTrajectory;
   calibration?: {
@@ -199,6 +201,8 @@ export type MetaReviewTrajectory =
 export interface MetaReview extends ProductQualityReview {
   nextStepThesis: string;
   improvementHypotheses: string[];
+  evaluationPlan: string[];
+  longHorizonPlan: string[];
   satisfaction: MetaReviewSatisfaction;
   trajectory: MetaReviewTrajectory;
 }
