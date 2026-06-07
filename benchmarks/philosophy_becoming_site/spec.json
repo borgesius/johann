@@ -197,12 +197,23 @@
     "minimumTechnicalQualityScore": 58,
     "maximumSpecQualityGap": 18,
     "minimumValidationScore": 65,
-    "rubric": [
-      "Judge whether the website feels like an authored, elaborate philosophical experience rather than a generic essay site with decorative language.",
-      "Reward coherent first-principles synthesis, strong information architecture, memorable interactions, and a visual language that supports process, tension, becoming, and negation.",
-      "Reward sites that balance structured explanation with more fragmentary or feverish exploratory surfaces.",
-      "Reward a controlled amount of schizo-cosmic or Time-Cube-like provocation when it remains intellectually rich and legible.",
-      "Penalize empty pseudo-profundity, philosopher name-dropping without synthesis, random sludge masquerading as depth, or polished UI with no real conceptual machinery."
-    ]
+    "profile": {
+      "summary": "Judge whether the website feels like an authored, elaborate philosophical experience rather than a generic essay site with decorative language.",
+      "priorities": [
+        "Treat hidden checks as the structural floor, not the main meaning of success.",
+        "Prefer a few deep conceptual interactions over many adjacent panels or decorative modules."
+      ],
+      "reward": [
+        "Coherent first-principles synthesis, strong information architecture, memorable interactions, and a visual language that supports process, tension, becoming, and negation.",
+        "A balance between structured explanation and more fragmentary or feverish exploratory surfaces.",
+        "A controlled amount of schizo-cosmic or Time-Cube-like provocation when it remains intellectually rich and legible."
+      ],
+      "penalize": [
+        "Empty pseudo-profundity, philosopher name-dropping without synthesis, random sludge masquerading as depth, or polished UI with no real conceptual machinery."
+      ],
+      "opportunities": [
+        "Suggest next moves that deepen the main conceptual machine or interaction loop instead of adding more disconnected surfaces."
+      ]
+    }
   }
 }

@@ -195,10 +195,20 @@
     "minimumTechnicalQualityScore": 60,
     "maximumSpecQualityGap": 16,
     "minimumValidationScore": 70,
-    "rubric": [
-      "Judge whether the harness feels meaningfully more capable at improving itself, not merely more complex.",
-      "Reward explicit self-improvement loops, dependency-aware work planning, richer operator visibility, and credible experiment or proposal surfaces.",
-      "Penalize placeholder modules, vague architecture documents, or product changes that sound impressive but do not clearly strengthen the harness."
-    ]
+    "profile": {
+      "summary": "Judge whether the harness feels meaningfully more capable at improving itself, not merely more complex.",
+      "priorities": [
+        "Care more about stronger self-improvement capability than about repo churn or extra modules."
+      ],
+      "reward": [
+        "Explicit self-improvement loops, dependency-aware work planning, richer operator visibility, and credible experiment or proposal surfaces."
+      ],
+      "penalize": [
+        "Placeholder modules, vague architecture documents, or changes that sound impressive but do not clearly strengthen the harness."
+      ],
+      "opportunities": [
+        "Prefer next steps that make future runs smarter, more legible, or more robust rather than merely adding more moving parts."
+      ]
+    }
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@borgesius/johann",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Johann: versioned seeds, generations, and local runner/eval tooling for Johann apps.",
   "type": "module",

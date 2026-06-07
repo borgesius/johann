@@ -26,7 +26,7 @@ import type {
   PolicyId,
   PriorityItem,
 } from "./types.js";
-import { pathExists, readJson, slugify, writeJson } from "./utils.js";
+import { copyDirFiltered, pathExists, readJson, slugify, writeJson, writeText } from "./utils.js";
 
 type ParsedArgs = {
   command?: string;
@@ -107,6 +107,7 @@ Commands:
   matrix --benchmarks <a,b> --workers <x,y> --policies <p,q> [--budget <minutes>] [--max-cycles <n>] [--success-threshold <score>] [--plateau-window <n>] [--plateau-threshold <score>] [--disable-plateau] [--continue-after-success]
   judge (--benchmark <id> | --brief-file <brief.md>) [--brief-id <id>] [--brief-kind <kind>] [--artifact-target <text>] --repo <path>
   report
+  freeze (--run <id> | --ledger <path> | --latest [--benchmark <id>] [--worker <id>] [--policy <id>]) --name <slug>
   chain --benchmarks <a,b,c> [--worker <id>] [--policy <id>] [--budget <minutes>] [--max-cycles <n>] [--chain-label <label>] [--success-threshold <score>] [--plateau-window <n>] [--plateau-threshold <score>] [--disable-plateau] [--continue-after-success]
   watch (--run <id> | --ledger <path> | --latest [--benchmark <id>] [--worker <id>] [--policy <id>] | --chain <id> | --chain-ledger <path> | --chain-latest [--label <label>]) [--interval <seconds>] [--once]
 `;
@@ -612,6 +613,136 @@ async function resolveLatestLedgerPath(
   return candidates[0] ? path.join(candidates[0].runDir, "ledger.json") : undefined;
 }
 
+async function resolveRunLedgerPath(
+  parsed: ParsedArgs,
+  loaded: LoadedConfig,
+  cwd: string,
+): Promise<string | undefined> {
+  let targetLedgerPath = getStringFlag(parsed, "ledger");
+  if (targetLedgerPath) {
+    targetLedgerPath = path.resolve(cwd, targetLedgerPath);
+  }
+
+  const runId = getStringFlag(parsed, "run");
+  if (runId) {
+    targetLedgerPath = path.join(loaded.rootDir, loaded.config.runsDir, runId, "ledger.json");
+  }
+
+  const wantsLatest =
+    Boolean(parsed.flags.latest) ||
+    (!targetLedgerPath &&
+      (Boolean(getStringFlag(parsed, "benchmark")) ||
+        Boolean(getStringFlag(parsed, "worker")) ||
+        Boolean(getStringFlag(parsed, "policy"))));
+
+  const latestFilters: { benchmarkId?: string; workerId?: string; policyId?: string } = {};
+  const benchmarkFilter = getStringFlag(parsed, "benchmark");
+  const workerFilter = getStringFlag(parsed, "worker");
+  const policyFilter = getStringFlag(parsed, "policy") as PolicyId | undefined;
+  if (benchmarkFilter) {
+    latestFilters.benchmarkId = benchmarkFilter;
+  }
+  if (workerFilter) {
+    latestFilters.workerId = workerFilter;
+  }
+  if (policyFilter) {
+    latestFilters.policyId = policyFilter;
+  }
+
+  if (!targetLedgerPath && wantsLatest) {
+    targetLedgerPath = await resolveLatestLedgerPath(loaded, latestFilters);
+  }
+
+  return targetLedgerPath;
+}
+
+function shouldFreezePath(sourcePath: string): boolean {
+  const baseName = path.basename(sourcePath);
+  return !["node_modules", ".git", ".bench", "dist", "coverage"].includes(baseName);
+}
+
+async function freezeRun(parsed: ParsedArgs, loaded: LoadedConfig, cwd: string): Promise<number> {
+  const name = getStringFlag(parsed, "name");
+  if (!name) {
+    throw new Error("freeze requires --name <slug>.");
+  }
+
+  const ledgerPath = await resolveRunLedgerPath(parsed, loaded, cwd);
+  if (!ledgerPath) {
+    throw new Error(
+      "freeze requires --run <id>, --ledger <path>, or --latest (optionally with --benchmark/--worker/--policy).",
+    );
+  }
+  if (!(await pathExists(ledgerPath))) {
+    throw new Error(`Run ledger not found: ${ledgerPath}`);
+  }
+
+  const ledger = await readJson<LoopState>(ledgerPath);
+  const generationSlug = slugify(name);
+  const generationDir = path.join(loaded.rootDir, "generations", generationSlug);
+  const repoTarget = path.join(generationDir, "repo");
+  const runTarget = path.join(generationDir, "run");
+
+  await fs.rm(generationDir, { recursive: true, force: true });
+  await fs.mkdir(runTarget, { recursive: true });
+
+  await copyDirFiltered(ledger.paths.repoDir, repoTarget, shouldFreezePath);
+
+  const copyIfPresent = async (source: string, destination: string): Promise<void> => {
+    if (!(await pathExists(source))) {
+      return;
+    }
+    const stat = await fs.stat(source);
+    if (stat.isDirectory()) {
+      await copyDirFiltered(source, destination, shouldFreezePath);
+    } else {
+      await fs.mkdir(path.dirname(destination), { recursive: true });
+      await fs.copyFile(source, destination);
+    }
+  };
+
+  await copyIfPresent(ledger.paths.inputDir, path.join(runTarget, "input"));
+  await copyIfPresent(ledger.paths.phasesDir, path.join(runTarget, "phases"));
+  await copyIfPresent(ledger.paths.reportsDir, path.join(runTarget, "reports"));
+  await copyIfPresent(ledger.paths.ledgerPath, path.join(runTarget, "ledger.json"));
+  await copyIfPresent(ledger.paths.resultPath, path.join(runTarget, "result.json"));
+
+  const summary = [
+    `# ${generationSlug}`,
+    "",
+    `- Run ID: \`${ledger.runId}\``,
+    `- Benchmark: \`${ledger.benchmarkId}\``,
+    `- Worker: \`${ledger.workerId}\``,
+    `- Policy: \`${ledger.policyId}\``,
+    `- Final score: ${ledger.finalJudge?.totalScore?.toFixed(1) ?? "n/a"}`,
+    `- Frozen at: ${new Date().toISOString()}`,
+    "",
+    "## Contents",
+    "",
+    "- [Repo](repo)",
+    "- [Ledger](run/ledger.json)",
+    ...(await pathExists(path.join(runTarget, "result.json")) ? ["- [Result](run/result.json)"] : []),
+    ...(await pathExists(path.join(runTarget, "reports", "run-report.md"))
+      ? ["- [Run Report](run/reports/run-report.md)"]
+      : []),
+    ...(await pathExists(path.join(runTarget, "input")) ? ["- [Run Inputs](run/input)"] : []),
+    ...(await pathExists(path.join(runTarget, "phases")) ? ["- [Phase Artifacts](run/phases)"] : []),
+    "",
+    "This is a frozen snapshot copied out of `.bench` so it can be inspected and preserved as a first-class generation artifact.",
+    "",
+  ].join("\n");
+  await writeText(path.join(generationDir, "README.md"), summary);
+
+  logJson({
+    name: generationSlug,
+    generationDir,
+    runId: ledger.runId,
+    benchmarkId: ledger.benchmarkId,
+    ledgerPath,
+  });
+  return 0;
+}
+
 async function watchRun(
   parsed: ParsedArgs,
   loaded: LoadedConfig,
@@ -878,6 +1009,9 @@ export async function runCli(argv = process.argv.slice(2), cwd = process.cwd()):
       });
       return 0;
     }
+
+    case "freeze":
+      return freezeRun(parsed, loaded, cwd);
 
     case "matrix": {
       const benchmarks = csvFlag(parsed, "benchmarks", []);

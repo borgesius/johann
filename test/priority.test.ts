@@ -135,4 +135,18 @@ describe("buildPriorityQueue", () => {
     expect(queue.map((item) => item.title)).toContain("Unify the product around a shared system spine");
     expect(queue.map((item) => item.title)).toContain("Add behavior tests around the core loop or shared system");
   });
+
+  it("escalates a pivot when review output shows execution thrash", () => {
+    const judge = makeJudge();
+    const queue = buildPriorityQueue(judge, {
+      summary: "Review found repeated loop behavior.",
+      unresolvedIssues: [
+        "Thrash risk: src/App.tsx was rewritten 5 times in this phase. Pivot to validation or a different fix before touching it again.",
+      ],
+    });
+
+    expect(queue.map((item) => item.title)).toContain(
+      "Break the current thrash loop and pivot to a more decisive fix",
+    );
+  });
 });

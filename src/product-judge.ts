@@ -3,6 +3,7 @@ import type {
   JudgeResult,
   OpportunityItem,
   ProductJudgeConfig,
+  ProductJudgeProfile,
   ProductQualityReview,
   ResolvedBenchmarkSpec,
   TokenUsageSummary,
@@ -28,7 +29,7 @@ type EffectiveProductJudgeConfig = {
   minimumTechnicalQualityScore?: number;
   maximumSpecQualityGap?: number;
   minimumValidationScore?: number;
-  rubric: string[];
+  profile: ProductJudgeProfile;
 };
 
 type OpenRouterMessage = {
@@ -73,13 +74,72 @@ const DEFAULT_PRODUCT_JUDGE: EffectiveProductJudgeConfig = {
   maxTokens: 1800,
   hiddenCheckWeight: 0.6,
   productQualityWeight: 0.4,
-  rubric: [
-    "Judge product quality, not simple file existence. Hidden checks already cover the checklist floor.",
-    "Reward depth of the core loop, architecture coherence, UX or operator-flow clarity, and evidence of meaningful iteration.",
-    "Penalize generic templates, shallow shells, disconnected features, overgrown orchestration files, and products that technically exist but feel empty.",
-    "Prefer fewer deeper systems over a pile of loosely connected tools, panels, or demos.",
-  ],
+  profile: {
+    summary:
+      "Judge whether the repo feels like a serious final product candidate rather than a benchmark-shaped shell.",
+    priorities: [
+      "Judge product quality, not simple file existence. Hidden checks already cover the checklist floor.",
+      "Balance brief fidelity with technical quality and runtime confidence.",
+      "Prefer one or two deeper systems over a pile of loosely connected surfaces.",
+    ],
+    reward: [
+      "Depth of the core loop or shared system spine.",
+      "Architecture coherence, thoughtful UX or operator-flow structure, and meaningful validation.",
+      "Evidence that the repo could continue evolving without needing a rewrite.",
+    ],
+    penalize: [
+      "Generic templates, shallow scaffolds, disconnected feature islands, and overgrown orchestration shells.",
+      "Technically present products that still feel empty, brittle, or overly demo-shaped.",
+    ],
+    opportunities: [
+      "Recommend opportunities that deepen the product, improve technical integrity, or make the result feel more whole and intentional.",
+    ],
+  },
 };
+
+function normalizeProfileStrings(value: string[] | undefined): string[] | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const normalized = value.map((item) => item.trim()).filter(Boolean);
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function profileFromLegacyRubric(rubric: string[] | undefined): ProductJudgeProfile | undefined {
+  const normalized = normalizeProfileStrings(rubric);
+  if (!normalized || normalized.length === 0) {
+    return undefined;
+  }
+  const [summary, ...priorities] = normalized;
+  return {
+    ...(summary ? { summary } : {}),
+    ...(priorities.length > 0 ? { priorities } : {}),
+  };
+}
+
+function mergeJudgeProfile(
+  base: ProductJudgeProfile,
+  override?: ProductJudgeProfile,
+  legacyRubric?: string[],
+): ProductJudgeProfile {
+  const legacyProfile = profileFromLegacyRubric(legacyRubric);
+  const merged: ProductJudgeProfile = {
+    ...base,
+    ...(legacyProfile ?? {}),
+    ...(override ?? {}),
+  };
+  const priorities = normalizeProfileStrings(merged.priorities);
+  const reward = normalizeProfileStrings(merged.reward);
+  const penalize = normalizeProfileStrings(merged.penalize);
+  const opportunities = normalizeProfileStrings(merged.opportunities);
+  return {
+    ...(merged.summary ? { summary: merged.summary.trim() } : {}),
+    ...(priorities ? { priorities } : {}),
+    ...(reward ? { reward } : {}),
+    ...(penalize ? { penalize } : {}),
+    ...(opportunities ? { opportunities } : {}),
+  };
+}
 
 export function resolveProductJudgeConfig(
   benchmark: ResolvedBenchmarkSpec,
@@ -111,9 +171,11 @@ export function resolveProductJudgeConfig(
     ...(configured?.minimumValidationScore !== undefined
       ? { minimumValidationScore: configured.minimumValidationScore }
       : {}),
-    rubric: configured?.rubric?.length
-      ? configured.rubric
-      : DEFAULT_PRODUCT_JUDGE.rubric,
+    profile: mergeJudgeProfile(
+      DEFAULT_PRODUCT_JUDGE.profile,
+      configured?.profile,
+      configured?.rubric,
+    ),
   };
 }
 
@@ -904,8 +966,12 @@ function buildPrompt(
 
 Focus on whether the repo is becoming a genuinely strong, well-engineered final product, not whether it merely created the right files.
 
-Rubric:
-${(config?.rubric ?? DEFAULT_PRODUCT_JUDGE.rubric).map((item) => `- ${item}`).join("\n")}
+Judge profile:
+- Summary: ${config?.profile.summary ?? DEFAULT_PRODUCT_JUDGE.profile.summary}
+${(config?.profile.priorities ?? []).length > 0 ? `- Priorities:\n${(config?.profile.priorities ?? []).map((item) => `  - ${item}`).join("\n")}` : ""}
+${(config?.profile.reward ?? []).length > 0 ? `- Reward:\n${(config?.profile.reward ?? []).map((item) => `  - ${item}`).join("\n")}` : ""}
+${(config?.profile.penalize ?? []).length > 0 ? `- Penalize:\n${(config?.profile.penalize ?? []).map((item) => `  - ${item}`).join("\n")}` : ""}
+${(config?.profile.opportunities ?? []).length > 0 ? `- Opportunity bias:\n${(config?.profile.opportunities ?? []).map((item) => `  - ${item}`).join("\n")}` : ""}
 
 Return JSON with this shape:
 {

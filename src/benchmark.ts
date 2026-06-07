@@ -256,26 +256,30 @@ function customBriefHiddenChecks(kind: string, useTypeScript: boolean): HiddenCh
 }
 
 function customProductJudge(kind: string, useTypeScript: boolean): ProductJudgeConfig {
-  const rubric = [
-    "Score whether the repo feels like a serious product attempt rather than a benchmark box-checker.",
-    "Reward feature depth, architecture coherence, thoughtful UX structure, and evidence of iteration.",
-    "Penalize shallow scaffolds, missing core loops, and implementations that technically pass but feel empty.",
+  const reward = [
+    "Feature depth, architecture coherence, thoughtful UX structure, and evidence of iteration.",
+    "A shared system spine or core loop that makes the product feel like one thing rather than a cluster of parts.",
+  ];
+  const penalize = [
+    "Shallow scaffolds, missing core loops, and implementations that technically pass but still feel empty.",
   ];
 
   if (kind === "electron") {
-    rubric.push(
-      "For Electron products, judge whether the app has a meaningful desktop structure and a real product surface, not just entrypoints.",
-      "Do not over-reward a repo for a clean shell, passing TypeScript build, README, or trivial tests if the actual game/app logic remains mostly placeholder.",
+    reward.push(
+      "For Electron products, a meaningful desktop structure and a real product surface, not just entrypoints.",
+    );
+    penalize.push(
+      "Over-rewarding a clean Electron shell, passing TypeScript build, README, or trivial tests when the actual game/app logic remains mostly placeholder.",
     );
   }
   if (useTypeScript) {
-    rubric.push(
-      "When the brief explicitly asks for TypeScript, penalize implementations that quietly fall back to plain JavaScript for the main product code.",
+    penalize.push(
+      "Quietly falling back to plain JavaScript for the main product code when the brief explicitly asked for TypeScript.",
     );
   }
   if (kind === "service") {
-    rubric.push(
-      "For services, judge whether the API or runtime design feels operationally credible, not just syntactically present.",
+    reward.push(
+      "For services, API or runtime design that feels operationally credible, not just syntactically present.",
     );
   }
 
@@ -288,7 +292,18 @@ function customProductJudge(kind: string, useTypeScript: boolean): ProductJudgeC
     minimumTechnicalQualityScore: kind === "electron" ? 58 : 55,
     maximumSpecQualityGap: kind === "electron" ? 14 : 18,
     minimumValidationScore: 55,
-    rubric,
+    profile: {
+      summary: "Judge whether the repo feels like a serious product attempt rather than a benchmark box-checker.",
+      priorities: [
+        "Treat hidden checks as the structural floor, not the main meaning of quality.",
+        "Prefer one deeper, integrated system over broad but disconnected surfaces.",
+      ],
+      reward,
+      penalize,
+      opportunities: [
+        "Suggest next moves that deepen the core product and improve technical integrity instead of expanding breadth for its own sake.",
+      ],
+    },
   };
 }
 

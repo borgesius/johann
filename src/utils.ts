@@ -45,6 +45,18 @@ export async function copyDir(source: string, destination: string): Promise<void
   await fs.cp(source, destination, { recursive: true });
 }
 
+export async function copyDirFiltered(
+  source: string,
+  destination: string,
+  shouldInclude: (sourcePath: string) => boolean | Promise<boolean>,
+): Promise<void> {
+  await fs.rm(destination, { recursive: true, force: true });
+  await fs.cp(source, destination, {
+    recursive: true,
+    filter: shouldInclude,
+  });
+}
+
 export async function copyDirContents(source: string, destination: string): Promise<void> {
   await ensureDir(destination);
   const entries = await fs.readdir(source, { withFileTypes: true });

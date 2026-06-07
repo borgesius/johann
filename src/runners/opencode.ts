@@ -40,6 +40,10 @@ type OpenCodeInvocationResult = {
 type OpenCodeInvoker = (options: OpenCodeInvocation) => Promise<OpenCodeInvocationResult>;
 
 const DEFAULT_OPENCODE_PHASES: Array<RunnerPhaseContext["phase"]> = ["execution", "review"];
+const FILE_THRASH_THRESHOLD = 4;
+const COMMAND_THRASH_THRESHOLD = 3;
+const RUNTIME_COMMAND_THRASH_THRESHOLD = 2;
+const WRITE_ACTIONS = new Set(["write", "edit", "multiedit"]);
 
 function shouldUseOpenCodePhase(worker: WorkerConfig, phase: RunnerPhaseContext["phase"]): boolean {
   return (worker.opencodePhases ?? DEFAULT_OPENCODE_PHASES).includes(phase);
@@ -195,6 +199,79 @@ function summarizeToolEvent(event: OpenCodeEvent, step: number): {
     commands,
     issues,
   };
+}
+
+function extractTraceFilePath(trace: PhaseTraceStep): string | undefined {
+  const filePath = typeof trace.action.filePath === "string"
+    ? trace.action.filePath
+    : typeof trace.action.path === "string"
+      ? trace.action.path
+      : undefined;
+  return filePath;
+}
+
+function normalizeCommand(command: string): string {
+  return command.trim().replace(/\s+/g, " ");
+}
+
+function looksLikeRuntimeCommand(command: string): boolean {
+  return /(?:npm|pnpm|yarn)\s+run\s+(?:dev|preview|start)\b|vite\b|curl\b|localhost|127\.0\.0\.1/i.test(
+    command,
+  );
+}
+
+function detectThrashSignals(
+  traces: PhaseTraceStep[],
+  commandsRun: string[],
+  rootDir?: string,
+): string[] {
+  const signals: string[] = [];
+  const fileWrites = new Map<string, number>();
+  const commandCounts = new Map<string, number>();
+
+  for (const trace of traces) {
+    if (!WRITE_ACTIONS.has(trace.actionType)) {
+      continue;
+    }
+    const filePath = extractTraceFilePath(trace);
+    if (!filePath) {
+      continue;
+    }
+    fileWrites.set(filePath, (fileWrites.get(filePath) ?? 0) + 1);
+  }
+
+  for (const [filePath, count] of fileWrites.entries()) {
+    if (count >= FILE_THRASH_THRESHOLD) {
+      const displayPath =
+        rootDir && path.isAbsolute(filePath) && filePath.startsWith(rootDir)
+          ? path.relative(rootDir, filePath)
+          : filePath;
+      signals.push(
+        `Thrash risk: ${displayPath} was rewritten ${count} times in this phase. Pivot to validation or a different fix before touching it again.`,
+      );
+    }
+  }
+
+  for (const command of commandsRun) {
+    const normalized = normalizeCommand(command);
+    if (!normalized) {
+      continue;
+    }
+    commandCounts.set(normalized, (commandCounts.get(normalized) ?? 0) + 1);
+  }
+
+  for (const [command, count] of commandCounts.entries()) {
+    const threshold = looksLikeRuntimeCommand(command)
+      ? RUNTIME_COMMAND_THRASH_THRESHOLD
+      : COMMAND_THRASH_THRESHOLD;
+    if (count >= threshold) {
+      signals.push(
+        `Thrash risk: repeated command '${truncate(command, 140)}' ran ${count} times in this phase. Change the likely cause before running it again.`,
+      );
+    }
+  }
+
+  return signals;
 }
 
 function mergeOutput(
@@ -362,6 +439,7 @@ export class OpenCodeRunner implements RunnerAdapter {
     const touchedFiles = new Set<string>();
     const commandsRun: string[] = [];
     const issues: string[] = [];
+    const issueSet = new Set<string>();
     let textOutput = "";
     let usage: TokenUsageSummary | undefined;
     let step = 0;
@@ -435,9 +513,25 @@ export class OpenCodeRunner implements RunnerAdapter {
               commandsRun.push(command);
             }
             for (const issue of eventIssues ?? []) {
-              issues.push(issue);
+              if (!issueSet.has(issue)) {
+                issues.push(issue);
+                issueSet.add(issue);
+              }
             }
-            reportProgress(trace?.observationSummary ?? `OpenCode used ${trace?.actionType ?? "a tool"}.`);
+            const thrashSignals = detectThrashSignals(traces, commandsRun, context.repoDir);
+            let newestThrashSignal: string | undefined;
+            for (const signal of thrashSignals) {
+              if (!issueSet.has(signal)) {
+                issues.push(signal);
+                issueSet.add(signal);
+                newestThrashSignal = signal;
+              }
+            }
+            reportProgress(
+              newestThrashSignal
+                ? newestThrashSignal
+                : trace?.observationSummary ?? `OpenCode used ${trace?.actionType ?? "a tool"}.`,
+            );
             return;
           }
 
@@ -463,6 +557,13 @@ export class OpenCodeRunner implements RunnerAdapter {
 
     const jsonObject = extractJsonObject(textOutput);
     const parsed = jsonObject ? JSON.parse(jsonObject) : undefined;
+    const thrashSignals = detectThrashSignals(traces, commandsRun, context.repoDir);
+    for (const signal of thrashSignals) {
+      if (!issueSet.has(signal)) {
+        issues.push(signal);
+        issueSet.add(signal);
+      }
+    }
     const summary =
       parsed && typeof parsed === "object" && typeof (parsed as Record<string, unknown>).summary === "string"
         ? String((parsed as Record<string, unknown>).summary)
@@ -497,6 +598,7 @@ export class OpenCodeRunner implements RunnerAdapter {
         runner: "opencode",
         model,
         exitCode: result.exitCode,
+        ...(thrashSignals.length > 0 ? { thrashSignals } : {}),
         ...(usage ? { usage } : {}),
         ...(result.sessionId ? { sessionId: result.sessionId } : {}),
       },

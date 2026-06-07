@@ -346,6 +346,15 @@ describe("judgeRepo", () => {
         workerModel: "qwen/qwen3-coder-flash",
         hiddenCheckWeight: 0.25,
         productQualityWeight: 0.75,
+        profile: {
+          summary: "Judge this as an operator console with one meaty workflow, not as a panel gallery.",
+          reward: [
+            "A single strong operator journey with meaningful shared state.",
+          ],
+          penalize: [
+            "Feature islands and disconnected panels that look broad but feel shallow.",
+          ],
+        },
       },
     };
 
@@ -357,6 +366,15 @@ describe("judgeRepo", () => {
     expect(judge.judgeUsage?.totalTokens).toBe(160);
     expect(judge.byCategory.product_quality).toBe(80);
     expect(judge.productReview?.opportunities[0]?.title).toBe("Deepen operator flow");
+    const fetchCall = fetchMock.mock.calls[0] as [unknown, { body?: string } | undefined] | undefined;
+    const fetchArgs = fetchCall?.[1];
+    const body = fetchArgs && typeof fetchArgs === "object" && "body" in fetchArgs
+      ? JSON.parse(String(fetchArgs.body))
+      : undefined;
+    const systemPrompt = body?.messages?.[0]?.content;
+    expect(systemPrompt).toContain("Judge this as an operator console with one meaty workflow");
+    expect(systemPrompt).toContain("A single strong operator journey with meaningful shared state.");
+    expect(systemPrompt).toContain("Feature islands and disconnected panels that look broad but feel shallow.");
   });
 
   it("falls back to a heuristic product review when the model judge is unavailable", async () => {

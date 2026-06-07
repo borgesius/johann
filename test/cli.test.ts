@@ -179,4 +179,39 @@ describe("runCli chain flow", () => {
     expect(output).toContain("files:");
     expect(output).toContain("commands:");
   }, 30_000);
+
+  it("freezes a run into a first-class generation snapshot", async () => {
+    const root = await createTempHarness();
+    await copyBuiltInBenchmark(root, "tiny_smoke");
+
+    const exitCode = await runCli(
+      [
+        "loop",
+        "--benchmark",
+        "tiny_smoke",
+        "--worker",
+        "stub",
+        "--policy",
+        "gated_role_loop",
+        "--budget",
+        "15",
+        "--max-cycles",
+        "1",
+      ],
+      root,
+    );
+    expect(exitCode).toBe(0);
+
+    const freezeExit = await runCli(
+      ["freeze", "--latest", "--benchmark", "tiny_smoke", "--name", "tiny-smoke-freeze"],
+      root,
+    );
+    expect(freezeExit).toBe(0);
+
+    const generationDir = path.join(root, "generations", "tiny-smoke-freeze");
+    await expect(fs.access(path.join(generationDir, "README.md"))).resolves.toBeUndefined();
+    await expect(fs.access(path.join(generationDir, "repo"))).resolves.toBeUndefined();
+    await expect(fs.access(path.join(generationDir, "run", "ledger.json"))).resolves.toBeUndefined();
+    await expect(fs.access(path.join(generationDir, "run", "reports", "run-report.md"))).resolves.toBeUndefined();
+  }, 30_000);
 });

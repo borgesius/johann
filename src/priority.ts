@@ -32,6 +32,13 @@ function failedBrowserSmokeSummary(
   return reviewSignal ? truncate(reviewSignal, 260) : undefined;
 }
 
+function thrashSummary(reviewOutput?: StructuredPhaseOutput): string | undefined {
+  const signal = [...(reviewOutput?.unresolvedIssues ?? []), ...(reviewOutput?.risks ?? [])].find((item) =>
+    /thrash risk|rewritten .* times|repeated command .* ran .* times/i.test(item),
+  );
+  return signal ? truncate(signal, 260) : undefined;
+}
+
 export function buildPriorityQueue(
   judge: JudgeResult,
   reviewOutput?: StructuredPhaseOutput,
@@ -186,6 +193,18 @@ export function buildPriorityQueue(
         : `The app still fails a live browser smoke check. ${browserSmokeFailure}`,
       source: "runtime-closure",
       severity: alreadyRich ? 5 : 4,
+    });
+  }
+
+  const thrashSignal = thrashSummary(reviewOutput);
+  if (thrashSignal) {
+    queue.push({
+      id: `thrash-${queue.length + 1}`,
+      bucket: "quality_improvement",
+      title: "Break the current thrash loop and pivot to a more decisive fix",
+      rationale: `The last cycle showed repeated rewrites or repeated commands without enough forward progress. Stop circling the same surface and choose a more decisive validation-first or root-cause-first move. ${thrashSignal}`,
+      source: "execution-thrash",
+      severity: 5,
     });
   }
 

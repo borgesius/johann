@@ -237,4 +237,78 @@ describe("OpenCodeRunner", () => {
     expect(result.summary).toBe("OpenRouter rescue path.");
     expect(delegate.runPhase).toHaveBeenCalledTimes(1);
   });
+
+  it("surfaces thrash signals when the same file and command repeat too many times", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "opencode-runner-thrash-"));
+    tempRoots.push(root);
+    const repoDir = path.join(root, "repo");
+    await fs.mkdir(repoDir, { recursive: true });
+
+    const delegate: RunnerAdapter = {
+      runPhase: vi.fn(async () => ({
+        summary: "delegate",
+        output: { summary: "delegate" },
+      })),
+    };
+
+    const invoke = vi.fn(async ({ onEvent }: { onEvent?: (event: Record<string, unknown>) => void }) => {
+      const events = [
+        { type: "step_start", sessionID: "ses_thrash" },
+        ...Array.from({ length: 4 }).flatMap(() => [
+          {
+            type: "tool_use",
+            sessionID: "ses_thrash",
+            part: {
+              tool: "write",
+              state: {
+                status: "completed",
+                input: { filePath: path.join(repoDir, "src", "App.tsx"), content: "export const x = 1;\n" },
+                metadata: { filepath: path.join(repoDir, "src", "App.tsx") },
+                title: "src/App.tsx",
+              },
+            },
+          },
+          {
+            type: "tool_use",
+            sessionID: "ses_thrash",
+            part: {
+              tool: "bash",
+              state: {
+                status: "completed",
+                input: { command: "npm run build" },
+                metadata: { exit: 1 },
+                title: "Build app",
+              },
+            },
+          },
+        ]),
+        {
+          type: "text",
+          sessionID: "ses_thrash",
+          part: {
+            text: JSON.stringify({
+              summary: "Execution ended with repeated attempts on the same surface.",
+            }),
+          },
+        },
+      ];
+      for (const event of events) {
+        onEvent?.(event);
+      }
+      return {
+        exitCode: 0,
+        stdout: "",
+        stderr: "",
+        events,
+        sessionId: "ses_thrash",
+      };
+    });
+
+    const runner = new OpenCodeRunner(worker, delegate, invoke as never);
+    const result = await runner.runPhase(makeContext(repoDir, "execution"));
+
+    expect(result.output.unresolvedIssues?.some((issue) => issue.includes("Thrash risk: src/App.tsx was rewritten 4 times"))).toBe(true);
+    expect(result.output.unresolvedIssues?.some((issue) => issue.includes("repeated command 'npm run build' ran 4 times"))).toBe(true);
+    expect((result.metadata as Record<string, unknown>).thrashSignals).toBeDefined();
+  });
 });

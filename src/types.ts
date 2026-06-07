@@ -141,7 +141,16 @@ export interface ProductJudgeConfig {
   minimumTechnicalQualityScore?: number;
   maximumSpecQualityGap?: number;
   minimumValidationScore?: number;
+  profile?: ProductJudgeProfile;
   rubric?: string[];
+}
+
+export interface ProductJudgeProfile {
+  summary?: string;
+  priorities?: string[];
+  reward?: string[];
+  penalize?: string[];
+  opportunities?: string[];
 }
 
 export interface ProductQualityReview {
