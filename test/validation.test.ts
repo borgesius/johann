@@ -17,6 +17,7 @@ import { runAutoValidations, scoreValidationResults } from "../src/validation.js
 const tempRoots: string[] = [];
 
 afterEach(async () => {
+  vi.clearAllMocks();
   await Promise.all(
     tempRoots.splice(0).map((root) => fs.rm(root, { recursive: true, force: true })),
   );
@@ -62,6 +63,41 @@ describe("validation runtime checks", () => {
     expect(browserSmoke?.command).toContain("npm run dev");
     expect(browserSmoke?.summary).toContain("Browser smoke failed");
     expect(scoreValidationResults(results)).toBeLessThan(100);
+  });
+
+  it("uses env-based host wiring for Next.js browser smoke validation", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "bench-validation-next-smoke-"));
+    tempRoots.push(root);
+
+    vi.mocked(runBrowserSmoke).mockResolvedValueOnce({
+      passed: false,
+      summary: "Browser smoke failed for http://127.0.0.1:4173",
+      details: "Last browser error: connection refused",
+    });
+
+    await fs.mkdir(path.join(root, "src"), { recursive: true });
+    await fs.writeFile(
+      path.join(root, "package.json"),
+      JSON.stringify({
+        name: "next-site",
+        scripts: {
+          dev: "next dev",
+          build: "next build",
+        },
+        dependencies: {
+          next: "^14.0.0",
+          react: "^18.0.0",
+        },
+      }, null, 2) + "\n",
+      "utf8",
+    );
+    await fs.writeFile(path.join(root, "src/main.tsx"), "console.log('boot');\n", "utf8");
+
+    const results = await runAutoValidations(root);
+    const browserSmoke = results.find((result) => result.id === "browser-smoke");
+
+    expect(runBrowserSmoke).toHaveBeenCalledOnce();
+    expect(browserSmoke?.command).toBe("HOSTNAME=127.0.0.1 PORT=4173 npm run dev");
   });
 
   it("skips placeholder validation scripts that only echo unfinished status", async () => {

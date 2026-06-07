@@ -145,7 +145,18 @@ function isLikelyWebManifest(manifest: PackageManifest | undefined): boolean {
 
 function webSmokeStartCommand(manifest: PackageManifest | undefined): string | undefined {
   const scripts = manifest?.scripts ?? {};
+  const deps = {
+    ...(manifest?.dependencies ?? {}),
+    ...(manifest?.devDependencies ?? {}),
+  };
+  const devScript = typeof scripts.dev === "string" ? scripts.dev : "";
+  const isNextApp =
+    typeof deps.next === "string"
+    || /\bnext\s+dev\b/.test(devScript);
   if (typeof scripts.dev === "string" && scripts.dev.trim()) {
+    if (isNextApp) {
+      return "HOSTNAME=127.0.0.1 PORT=4173 npm run dev";
+    }
     return "npm run dev -- --host 127.0.0.1 --port 4173";
   }
   if (typeof scripts.start === "string" && scripts.start.trim()) {
