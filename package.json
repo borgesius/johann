@@ -1,6 +1,6 @@
 {
   "name": "@borgesius/johann",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "description": "A local workbench for generating software from seed briefs, evaluating the results, and iterating on the system itself.",
   "type": "module",
@@ -21,6 +21,8 @@
     "dev": "tsx src/index.ts",
     "hft:dream:run": "bash ./scripts/run-hft-dream-chain.sh",
     "hft:dream:watch": "bash ./scripts/watch-hft-dream-chain.sh",
+    "philosophy:run": "bash ./scripts/run-philosophy-becoming-site.sh",
+    "philosophy:watch": "bash ./scripts/watch-philosophy-becoming-site.sh",
     "release:control:smoke": "bash ./scripts/run-release-control-smoke.sh",
     "release:control:run": "bash ./scripts/run-release-control-chain.sh",
     "release:control:watch": "bash ./scripts/watch-release-control-chain.sh",
