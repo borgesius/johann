@@ -1,8 +1,13 @@
 # Johann
 
-`@borgesius/johann` is the root repo for Johann apps, seeds, and tagged generations.
+`@borgesius/johann` is the root repo for Johann: a local generation harness, seed corpus, and evaluation workbench for building Johann apps.
 
-This repo is intentionally simple at `v0.2.0`: no showcase webapp yet, just the source tree, the run/eval machinery, and a release index that makes it easy to point people at specific versions and generations.
+At the root, Johann is not a single finished app. It is the system that:
+- stores seeds and briefs for Johann app lines
+- runs and evaluates medium-to-long autonomous generations
+- preserves benchmarks, prompts, policies, and tooling for improving the generator itself
+
+This repo is intentionally simple at `v0.2.0`: no showcase webapp yet, just the source tree, the run/eval machinery, and a release index that makes it easy to point people at specific versions and generation lines.
 
 ## Tagged Versions
 
@@ -13,6 +18,8 @@ This repo is intentionally simple at `v0.2.0`: no showcase webapp yet, just the 
 
 ## Tagged Generations
 
+These are currently **indexed generation lines**, not separate frozen artifact snapshots. Right now the `g0-*` tags all point at the same public root release commit and act as navigational labels for the first Johann generation families. When we want to preserve a specific standout output, we should cut a dedicated artifact tag for that exact generated repo state.
+
 | Version | Name | Description | Seed | Generation |
 | --- | --- | --- | --- | --- |
 | `v0.2.0` | Johann Core | Public Johann root release with the base repo structure, release ledger, and local generation/eval tooling. | `repo/bootstrap` | [`g0-core`](https://github.com/borgesius/johann/tree/g0-core) |
@@ -22,8 +29,12 @@ This repo is intentionally simple at `v0.2.0`: no showcase webapp yet, just the 
 
 ## Repo Shape
 
+- root: Johann itself as harness/workbench, not one generated app
 - `examples/briefs/`: direct seeds for Johann app generations
+- `benchmarks/`: reusable benchmark specs and staged tasks
 - `src/`: local runner, judging, reporting, and orchestration code
+- `test/`: regression coverage for evaluator, loop, prompts, and runners
+- `seeds/`: seed repos and stage scaffolds used by benchmark/generation runs
 - `scripts/`: repeatable run/watch helpers
 - `.bench/`: local generated runs and artifacts
 
@@ -50,5 +61,5 @@ npm run dev -- watch --latest --benchmark brief-philosophy-becoming-site --worke
 
 - `v0.1.0` was a local-only Johann cut and is intentionally left unlinked.
 - `v0.2.0` is the first public Johann repo cut.
-- `g0-*` labels are the first indexed generations under the Johann name.
+- `g0-*` labels are the first indexed generation lines under the Johann name, not separate frozen artifact commits yet.
 - Future tags can either stay repo-level (`v0.1.1`, `v0.2.0`) or add generation-specific tags if we want to freeze standout outputs separately.
