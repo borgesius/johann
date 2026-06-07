@@ -28,6 +28,7 @@ type OpenCodeInvocation = {
   env: NodeJS.ProcessEnv;
   timeoutMs: number;
   idleTimeoutMs?: number;
+  abortSignal?: AbortSignal;
   onEvent?: (event: OpenCodeEvent) => void;
 };
 
@@ -37,7 +38,7 @@ type OpenCodeInvocationResult = {
   stderr: string;
   events: OpenCodeEvent[];
   sessionId?: string;
-  timeoutReason?: "total" | "idle";
+  timeoutReason?: "total" | "idle" | "aborted";
 };
 
 type OpenCodeInvoker = (options: OpenCodeInvocation) => Promise<OpenCodeInvocationResult>;
@@ -458,7 +459,7 @@ async function invokeOpenCodeCli(options: OpenCodeInvocation): Promise<OpenCodeI
     let stdoutBuffer = "";
     const events: OpenCodeEvent[] = [];
     let sessionId: string | undefined;
-    let timeoutReason: "total" | "idle" | undefined;
+    let timeoutReason: "total" | "idle" | "aborted" | undefined;
 
     const timer = setTimeout(() => {
       timeoutReason = "total";
@@ -480,6 +481,18 @@ async function invokeOpenCodeCli(options: OpenCodeInvocation): Promise<OpenCodeI
     };
 
     resetIdleTimer();
+
+    const abortHandler = (): void => {
+      timeoutReason = "aborted";
+      child.kill("SIGTERM");
+    };
+    if (options.abortSignal) {
+      if (options.abortSignal.aborted) {
+        abortHandler();
+      } else {
+        options.abortSignal.addEventListener("abort", abortHandler, { once: true });
+      }
+    }
 
     function flushLines(chunk: string): void {
       stdoutBuffer += chunk;
@@ -521,6 +534,7 @@ async function invokeOpenCodeCli(options: OpenCodeInvocation): Promise<OpenCodeI
       if (idleTimer) {
         clearTimeout(idleTimer);
       }
+      options.abortSignal?.removeEventListener("abort", abortHandler);
       reject(error);
     });
 
@@ -529,6 +543,7 @@ async function invokeOpenCodeCli(options: OpenCodeInvocation): Promise<OpenCodeI
       if (idleTimer) {
         clearTimeout(idleTimer);
       }
+      options.abortSignal?.removeEventListener("abort", abortHandler);
       if (stdoutBuffer.trim().length > 0) {
         try {
           const parsed = JSON.parse(stdoutBuffer.trim()) as OpenCodeEvent;
@@ -649,6 +664,7 @@ export class OpenCodeRunner implements RunnerAdapter {
       },
       timeoutMs: phaseTimeoutMs(context.phase),
       idleTimeoutMs: phaseIdleTimeoutMs(context.phase),
+      ...(context.abortSignal ? { abortSignal: context.abortSignal } : {}),
       onEvent: (event) => {
           if (event.sessionID) {
             this.sessions.set(context.repoDir, event.sessionID);
@@ -713,6 +729,15 @@ export class OpenCodeRunner implements RunnerAdapter {
     let result: OpenCodeInvocationResult;
     try {
       result = await this.invoke(makeInvocation());
+      if (result.timeoutReason === "aborted") {
+        return this.delegate.runPhase({
+          ...context,
+          handoffNotes: [
+            ...context.handoffNotes,
+            `OpenCode ${context.phase} was aborted after the phase stopped making progress.`,
+          ],
+        });
+      }
       if (result.timeoutReason === "idle" && !extractJsonObject(textOutput)) {
         const idleNote =
           `The previous OpenCode ${context.phase} attempt went idle after partial progress. ` +

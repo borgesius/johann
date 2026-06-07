@@ -101,6 +101,7 @@ async function callOpenRouter(
     maxTokens?: number;
     timeoutMs?: number;
     model?: string;
+    abortSignal?: AbortSignal;
   },
 ): Promise<{ text: string; model?: string; usage?: unknown; requestedModel: string }> {
   const apiKeyEnv = worker.apiKeyEnv ?? "OPENROUTER_API_KEY";
@@ -112,10 +113,22 @@ async function callOpenRouter(
   if (!requestedModel) {
     throw new Error("OpenRouter worker is missing a model.");
   }
+  if (options?.abortSignal?.aborted) {
+    throw new Error(
+      options.abortSignal.reason instanceof Error
+        ? options.abortSignal.reason.message
+        : String(options.abortSignal.reason ?? "Phase aborted."),
+    );
+  }
 
   const controller = new AbortController();
   const timeoutMs = options?.timeoutMs ?? 60_000;
   let timeoutHandle: NodeJS.Timeout | undefined;
+  const externalAbort = options?.abortSignal;
+  const onExternalAbort = (): void => {
+    controller.abort();
+  };
+  externalAbort?.addEventListener("abort", onExternalAbort, { once: true });
   const response = await Promise.race([
     fetch(worker.baseUrl ?? "https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -142,6 +155,7 @@ async function callOpenRouter(
     if (timeoutHandle) {
       clearTimeout(timeoutHandle);
     }
+    externalAbort?.removeEventListener("abort", onExternalAbort);
   });
 
   if (!response.ok) {
@@ -166,6 +180,22 @@ async function callOpenRouter(
     output.usage = data.usage;
   }
   return output;
+}
+
+function isAbortLikeError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /\babort(ed)?\b|\bstall(ed)?\b/i.test(message);
+}
+
+function abortSummary(context: RunnerPhaseContext): string {
+  const reason = context.abortSignal?.reason;
+  if (reason instanceof Error && reason.message) {
+    return `Recovered ${context.phase} after a phase stall: ${reason.message}`;
+  }
+  if (typeof reason === "string" && reason.trim().length > 0) {
+    return `Recovered ${context.phase} after a phase stall: ${reason}`;
+  }
+  return `Recovered ${context.phase} after a phase stall.`;
 }
 
 function primaryModelForPhase(
@@ -2078,6 +2108,8 @@ async function applyAction(
         action.command,
         repoDir,
         (action.timeoutSeconds ?? 45) * 1_000,
+        undefined,
+        context.abortSignal,
       );
       return {
         summary: `Ran command '${action.command}' with exit code ${result.exitCode}`,
@@ -2101,6 +2133,7 @@ async function applyAction(
         url: action.url,
         timeoutMs: (action.timeoutSeconds ?? 45) * 1_000,
         screenshotPath,
+        ...(context.abortSignal ? { abortSignal: context.abortSignal } : {}),
         ...(action.startCommand ? { startCommand: action.startCommand } : {}),
         ...(action.waitForText ? { waitForText: action.waitForText } : {}),
         ...(action.waitForSelector ? { waitForSelector: action.waitForSelector } : {}),
@@ -2400,6 +2433,7 @@ export class OpenRouterRunner implements RunnerAdapter {
         maxTokens: number;
         timeoutMs: number;
         forcedFinish?: boolean;
+        abortSignal?: AbortSignal;
       },
     ) => {
       try {
@@ -2407,6 +2441,7 @@ export class OpenRouterRunner implements RunnerAdapter {
           maxTokens: options.maxTokens,
           timeoutMs: options.timeoutMs,
           model: phasePrimaryModel,
+          ...(options.abortSignal ? { abortSignal: options.abortSignal } : {}),
         });
         modelCalls.push({
           requestedModel: phasePrimaryModel,
@@ -2439,6 +2474,7 @@ export class OpenRouterRunner implements RunnerAdapter {
             maxTokens: options.maxTokens,
             timeoutMs: options.timeoutMs,
             model: phaseFallbackModel,
+            ...(options.abortSignal ? { abortSignal: options.abortSignal } : {}),
           });
           modelCalls.push({
             requestedModel: phaseFallbackModel,
@@ -2470,6 +2506,10 @@ export class OpenRouterRunner implements RunnerAdapter {
         step,
       });
 
+      if (context.abortSignal?.aborted) {
+        return forceStructuredFinish("phase_stall", abortSummary(context));
+      }
+
       if (Date.now() - startedAt > phaseBudgetMs) {
         return forceStructuredFinish(
           "time_budget",
@@ -2482,8 +2522,12 @@ export class OpenRouterRunner implements RunnerAdapter {
         completion = await requestCompletion(step, messages, {
           maxTokens: phaseMaxTokens,
           timeoutMs: phaseRequestTimeoutMs,
+          ...(context.abortSignal ? { abortSignal: context.abortSignal } : {}),
         });
       } catch (error) {
+        if (isAbortLikeError(error)) {
+          return forceStructuredFinish("phase_stall", abortSummary(context));
+        }
         return forceStructuredFinish(
           "completion_error",
           `Recovered ${context.phase} after an OpenRouter call failed: ${
@@ -2752,6 +2796,9 @@ export class OpenRouterRunner implements RunnerAdapter {
       try {
         applied = await applyAction(context, action);
       } catch (error) {
+        if (isAbortLikeError(error)) {
+          return forceStructuredFinish("phase_stall", abortSummary(context));
+        }
         const message = error instanceof Error ? error.message : String(error);
         await pushTrace(
           step,

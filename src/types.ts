@@ -616,6 +616,7 @@ export interface RunnerPhaseContext {
   handoffNotes: string[];
   continueAfterSuccess?: boolean;
   maxCycles?: number;
+  abortSignal?: AbortSignal;
   onProgress?: (progress: RunnerPhaseProgress) => Promise<void> | void;
 }
 

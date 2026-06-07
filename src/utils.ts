@@ -179,8 +179,9 @@ export async function runShellCommand(
   cwd: string,
   timeoutMs = 120_000,
   envOverrides?: Record<string, string>,
+  abortSignal?: AbortSignal,
 ): Promise<ShellResult> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const child = spawn(command, {
       cwd,
       shell: true,
@@ -194,9 +195,37 @@ export async function runShellCommand(
     let stdout = "";
     let stderr = "";
     let resolved = false;
+    const finishReject = (message: string): void => {
+      if (resolved) {
+        return;
+      }
+      resolved = true;
+      clearTimeout(timer);
+      reject(new Error(message));
+    };
     const timer = setTimeout(() => {
       child.kill("SIGTERM");
     }, timeoutMs);
+
+    const abortHandler = (): void => {
+      child.kill("SIGTERM");
+      setTimeout(() => {
+        try {
+          child.kill("SIGKILL");
+        } catch {
+          // ignore
+        }
+      }, 250);
+      finishReject(`Shell command aborted: ${command}`);
+    };
+
+    if (abortSignal) {
+      if (abortSignal.aborted) {
+        abortHandler();
+        return;
+      }
+      abortSignal.addEventListener("abort", abortHandler, { once: true });
+    }
 
     child.stdout.on("data", (chunk) => {
       stdout += chunk.toString();
@@ -212,6 +241,9 @@ export async function runShellCommand(
       }
       resolved = true;
       clearTimeout(timer);
+      if (abortSignal) {
+        abortSignal.removeEventListener("abort", abortHandler);
+      }
       resolve({
         command,
         cwd,

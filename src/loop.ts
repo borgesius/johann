@@ -667,6 +667,21 @@ async function writePhaseArtifacts(
   return output;
 }
 
+function phaseStallThresholdMs(phase: PhaseId): number {
+  switch (phase) {
+    case "execution":
+      return 10 * 60_000;
+    case "review":
+      return 7 * 60_000;
+    case "planning":
+    case "pm_intake":
+    case "pm_reprioritization":
+      return 6 * 60_000;
+    case "judging":
+      return 5 * 60_000;
+  }
+}
+
 async function runRolePhase(
   runner: RunnerAdapter,
   context: RunnerPhaseContext,
@@ -675,11 +690,29 @@ async function runRolePhase(
 ): Promise<PhaseRecord> {
   const startedAt = nowIso();
   const existingOnProgress = context.onProgress;
-  const result = await runner.runPhase({
+  const abortController = new AbortController();
+  let lastProgressAt = Date.now();
+  const stallThresholdMs = phaseStallThresholdMs(context.phase);
+  const stallTimer = setInterval(() => {
+    if (abortController.signal.aborted) {
+      return;
+    }
+    if (Date.now() - lastProgressAt > stallThresholdMs) {
+      abortController.abort(
+        new Error(`Phase '${context.phase}' stalled after ${Math.round(stallThresholdMs / 60_000)} minutes without progress.`),
+      );
+    }
+  }, 15_000);
+
+  let result: RunnerPhaseResult;
+  try {
+    result = await runner.runPhase({
     ...context,
+    abortSignal: abortController.signal,
     ...(existingOnProgress || state
       ? {
           onProgress: async (progress) => {
+            lastProgressAt = Date.now();
             if (existingOnProgress) {
               await existingOnProgress(progress);
             }
@@ -698,6 +731,9 @@ async function runRolePhase(
         }
       : {}),
   });
+  } finally {
+    clearInterval(stallTimer);
+  }
   const completedAt = nowIso();
   const git = await getGitSummary(context.repoDir);
   const prompt =

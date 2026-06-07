@@ -13,6 +13,14 @@ In plain language:
 
 A **seed** is the starting brief. A **generation** is a concrete artifact produced from a run of that seed. The `Version` column below means **Johann version**, not app version.
 
+| Version | Focus |
+| --- | --- |
+| `v0.4.0` | Generic meta-review became the main judge instead of seed-specific judge prose. |
+| `v0.4.1` | Better self-evaluation plans and improved smoke/idle stall handling. |
+| `v0.4.2` | Added generic `live`/`watch` scripts and stronger repair-loop detection for brittle exact-match edits. |
+| `v0.4.3` | Hardened runtime smoke recovery for failed smoke/debug branches. |
+| `v0.4.4` | Adds phase-stall aborts so long quiet hangs recover instead of parking indefinitely. |
+
 | Version | Name | Description | Model | Policy | Timing | Seed | Generation |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `v0.1.0` | Becoming Site | Elaborate philosophy site about being as stabilized becoming, negatively known limit-points, and nonlinear exploratory surfaces. This is marked `v0.1.0` because the generation was produced before later repo changes. | `qwen-coder-hybrid-opencode` | `repair_focus_loop` | roughly `45 min` (manually terminated) | [philosophy-becoming-site.md](examples/briefs/philosophy-becoming-site.md) | [repo](.bench/runs/brief-philosophy-becoming-site-qwen-coder-hybrid-opencode-repair-focus-loop-2026-06-07T02-09-50-519Z-7efbee/repo) |

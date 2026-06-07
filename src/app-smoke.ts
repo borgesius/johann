@@ -20,6 +20,7 @@ export interface BrowserSmokeOptions {
   waitForSelector?: string;
   timeoutMs?: number;
   screenshotPath?: string;
+  abortSignal?: AbortSignal;
 }
 
 export interface AppSmokeResult {
@@ -213,6 +214,9 @@ async function matchesRequiredText(
 }
 
 export async function runBrowserSmoke(options: BrowserSmokeOptions): Promise<AppSmokeResult> {
+  if (options.abortSignal?.aborted) {
+    throw new Error("Browser smoke aborted before launch.");
+  }
   const executablePath = await resolveBrowserExecutable();
   const timeoutMs = options.timeoutMs ?? 45_000;
   const deadline = Date.now() + timeoutMs;
@@ -245,6 +249,9 @@ export async function runBrowserSmoke(options: BrowserSmokeOptions): Promise<App
     page = await browser.newPage();
 
     while (Date.now() < deadline) {
+      if (options.abortSignal?.aborted) {
+        throw new Error("Browser smoke aborted.");
+      }
       try {
         const currentPage = page;
         if (!currentPage) {

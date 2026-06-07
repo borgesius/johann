@@ -131,6 +131,7 @@ function makeContext(
     ...(options?.visibleInitiatives ? { visibleInitiatives: options.visibleInitiatives } : {}),
     ...(options?.visibleOpportunities ? { visibleOpportunities: options.visibleOpportunities } : {}),
     ...(options?.previousPhaseOutputs ? { previousPhaseOutputs: options.previousPhaseOutputs } : {}),
+    ...(options?.abortSignal ? { abortSignal: options.abortSignal } : {}),
   };
 }
 
@@ -1465,5 +1466,28 @@ describe("OpenRouterRunner limit recovery", () => {
     expect(result.metadata?.forcedFinish).toBe(true);
     expect(result.metadata?.recoveryMode).toBe("runtime_debug_stall");
     expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("returns a structured finish when execution is aborted after stalling", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "openrouter-runner-abort-stall-"));
+    tempRoots.push(root);
+    const repoDir = path.join(root, "repo");
+    await fs.mkdir(repoDir, { recursive: true });
+
+    const controller = new AbortController();
+    controller.abort(new Error("Phase 'execution' stalled after 10 minutes without progress."));
+
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const runner = new OpenRouterRunner(worker);
+    const result = await runner.runPhase(
+      makeContext(repoDir, "execution", { abortSignal: controller.signal }),
+    );
+
+    expect(result.summary).toContain("phase stall");
+    expect(result.metadata?.forcedFinish).toBe(true);
+    expect(result.metadata?.recoveryMode).toBe("phase_stall");
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(1);
   });
 });
